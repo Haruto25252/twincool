@@ -103,7 +103,7 @@ const COLORS=[
   {name:'紫',hex:'#7F77DD'},{name:'ピンク',hex:'#D4537E'},
 ];
 let removed={},spaces=[null,null],hand=[],gridLocked=false;
-let selColor=null,selNum=null,modalMode=null,modalTarget=null;
+let selColors=[],selNums=[],modalMode=null,modalTarget=null;
 const isRem=(c,n)=>!!removed[c+'_'+n];
 const togRem=(c,n)=>{if(gridLocked)return;const k=c+'_'+n;removed[k]?delete removed[k]:(removed[k]=true);renderGrid();updateSugs();updateHint();};
 function dot(hex,s=14){return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}"><circle cx="${s/2}" cy="${s/2}" r="${s/2-0.5}" fill="${hex}"/></svg>`;}
@@ -240,38 +240,81 @@ function playCard(ci,si){
 }
 function openModal(mode,target){
   if(mode==='hand'&&hand.length>=5) return;
-  modalMode=mode;modalTarget=target;selColor=null;selNum=null;renderModal();
+  modalMode=mode;modalTarget=target;selColors=[];selNums=[];renderModal();
 }
 function renderModal(){
-  const title=modalMode==='hand'?'手札にカードを追加':`SP${modalTarget+1}のカードを設定`;
-  document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)">
-    <div class="md" onclick="event.stopPropagation()">
-      <div style="font-size:14px;font-weight:500;margin-bottom:12px;">${title}</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">色</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-        ${COLORS.map(c=>`<div class="cb${selColor===c.name?' sel':''}" style="background:${c.hex};" onclick="sc('${c.name}')" title="${c.name}"></div>`).join('')}
+  if(modalMode==='hand'){
+    const numDis=(n)=>selColors.length>0&&selColors.every(c=>isRem(c,n));
+    document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)">
+      <div class="md" onclick="event.stopPropagation()">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-size:14px;font-weight:500;">手札にカードを追加</div>
+          <button class="btn" style="padding:4px 10px;font-size:12px;" onclick="cm()">－ 閉じる</button>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">色</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+          ${COLORS.map(c=>`<div class="cb${selColors.includes(c.name)?' sel':''}" style="background:${c.hex};" onclick="sc('${c.name}')" title="${c.name}"></div>`).join('')}
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">数字</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n=>{const d=numDis(n);return `<div class="nb${selNums.includes(n)?' sel':''}${d?' dis':''}" onclick="${d?'':'sn('+n+')'}">${n}</div>`;}).join('')}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" style="flex:1;padding:10px;" onclick="clearSel()">選択解除</button>
+          <button class="btn btn-p" style="flex:1;padding:10px;" onclick="addCards()">カードを追加</button>
+        </div>
       </div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">数字</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
-        ${[1,2,3,4,5,6,7,8,9,10].map(n=>{const d=selColor&&isRem(selColor,n);return `<div class="nb${selNum===n?' sel':''}${d?' dis':''}" onclick="${d?'':'sn('+n+')'}">${n}</div>`;}).join('')}
+    </div>`;
+  } else {
+    const d1=selColors.length>0?selColors[0]:null;
+    document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)">
+      <div class="md" onclick="event.stopPropagation()">
+        <div style="font-size:14px;font-weight:500;margin-bottom:12px;">SP${modalTarget+1}のカードを設定</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">色</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+          ${COLORS.map(c=>`<div class="cb${selColors.includes(c.name)?' sel':''}" style="background:${c.hex};" onclick="sc('${c.name}')" title="${c.name}"></div>`).join('')}
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">数字</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n=>{const d=d1&&isRem(d1,n);return `<div class="nb${selNums.includes(n)?' sel':''}${d?' dis':''}" onclick="${d?'':'sn('+n+')'}">${n}</div>`;}).join('')}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" style="flex:1;padding:10px;" onclick="cm()">キャンセル</button>
+          <button class="btn btn-p" style="flex:1;padding:10px;" onclick="ok()">確定</button>
+        </div>
       </div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn" style="flex:1;padding:10px;" onclick="cm()">キャンセル</button>
-        <button class="btn btn-p" style="flex:1;padding:10px;" onclick="ok()">確定</button>
-      </div>
-    </div>
-  </div>`;
+    </div>`;
+  }
 }
-function sc(n){selColor=n;renderModal();}
-function sn(n){selNum=n;renderModal();}
+function sc(name){
+  if(modalMode==='hand'){const i=selColors.indexOf(name);if(i>=0)selColors.splice(i,1);else selColors.push(name);}
+  else selColors=[name];
+  renderModal();
+}
+function sn(n){
+  if(modalMode==='hand'){const i=selNums.indexOf(n);if(i>=0)selNums.splice(i,1);else selNums.push(n);}
+  else selNums=[n];
+  renderModal();
+}
 function cbg(e){if(e.target.classList.contains('mo')) cm();}
 function cm(){document.getElementById('modal-root').innerHTML='';}
+function clearSel(){selColors=[];selNums=[];renderModal();}
+function addCards(){
+  if(selColors.length===0||selNums.length===0) return;
+  for(const c of selColors){
+    for(const n of selNums){
+      if(hand.length>=5) break;
+      if(!isRem(c,n)) hand.push({color:c,number:n});
+    }
+    if(hand.length>=5) break;
+  }
+  selColors=[];selNums=[];
+  renderModal();renderHand();
+}
 function ok(){
-  if(!selColor||!selNum) return;
-  const card={color:selColor,number:selNum};
-  if(modalMode==='hand') hand.push(card);
-  else spaces[modalTarget]=card;
-  cm();renderHand();renderSpaces();
+  if(selColors.length===0||selNums.length===0) return;
+  spaces[modalTarget]={color:selColors[0],number:selNums[0]};
+  cm();renderSpaces();
 }
 function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;renderGrid();renderSpaces();renderHand();}
 renderGrid();renderSpaces();renderHand();
