@@ -248,15 +248,8 @@ function calcSugs(){
       const noHP=nh.length>0&&hPlay===0;
       const lowD=dRatio<0.15&&dTot>5;
       const contEst=chain+dPlay;
-      // SP多様性スコア：異色SPは受け入れ広い、同色SPは狭い
-      const s0=ns[0],s1=ns[1];
-      let spDiv=0;
-      if(!s0||!s1){spDiv=20;}
-      else{
-        if(s0.color!==s1.color)spDiv+=15; else spDiv-=20;
-        if(s0.number!==s1.number)spDiv+=5;
-      }
       // SP色のデッキ密度：残枚数の多い色がSPにある方が将来の出し口が広い
+      const s0=ns[0],s1=ns[1];
       let deckDens=0;
       if(s0)deckDens+=cRem[s0.color]||0;
       if(s1)deckDens+=cRem[s1.color]||0;
@@ -266,13 +259,14 @@ function calcSugs(){
       else if(card.color===sp.color&&card.number===sp.number){base=25;reason='完全一致';}
       else if(card.color===sp.color){base=15;reason='同色';}
       else{base=10;reason='同数字';}
-      // 手連鎖の重みを下げ、SP多様性・デッキ密度を重視
-      let score=50+base+chain*5+spDiv+deckDensScore+Math.round(dRatio*15);
+      // SP同色ペナルティは廃止：dRatioが実態を正確に反映する
+      // 同色でもデッキにその色が多ければ高スコアになるのが正しい
+      let score=50+base+chain*5+deckDensScore+Math.round(dRatio*25);
       if(noHP)score-=25;
       if(lowD)score-=15;
       if(gameMode===70){if(noHP)score-=15;if(lowD)score-=10;}
       score=Math.min(100,Math.max(0,score));
-      s.push({ci,card,si,score,reason,chain,hPlay,dPlay,dTot,dRatio,contEst,noHP,lowD,spDiv,ns});
+      s.push({ci,card,si,score,reason,chain,hPlay,dPlay,dTot,dRatio,contEst,noHP,lowD,ns});
     });
   });
   s.sort((a,b)=>b.score-a.score||b.contEst-a.contEst);
