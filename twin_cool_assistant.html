@@ -92,7 +92,14 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 </div>
 <div class="dv"></div>
 <div>
-  <div class="sl" style="margin-bottom:8px;">提案</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div class="sl" style="margin-bottom:0;">提案</div>
+    <div style="display:flex;gap:4px;align-items:center;">
+      <span style="font-size:10px;color:var(--text2);">目標:</span>
+      <button class="btn" id="mode60" style="font-size:11px;padding:5px 8px;" onclick="setMode(60)">60枚</button>
+      <button class="btn" id="mode70" style="font-size:11px;padding:5px 8px;" onclick="setMode(70)">70枚</button>
+    </div>
+  </div>
   <div id="sugs"><span style="font-size:12px;color:var(--text3);">手札を入力すると提案が表示されます</span></div>
 </div>
 <div id="modal-root"></div>
@@ -104,7 +111,7 @@ const COLORS=[
   {name:'灰',hex:'#A0A09A'},{name:'シアン',hex:'#29B8C2'},
   {name:'紫',hex:'#7F77DD'},{name:'ピンク',hex:'#D4537E'},
 ];
-let removed={},spaces=[null,null],hand=[],gridLocked=false;
+let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60;
 let selColors=[],selNums=[],modalMode=null,modalTarget=null,showWarn=false;
 const isRem=(c,n)=>!!removed[c+'_'+n];
 const countCombos=(colors,nums)=>{let c=0;for(const cl of colors)for(const n of nums)if(!isRem(cl,n))c++;return c;};
@@ -191,23 +198,84 @@ function updateHint(){
     return `<div>SP${si+1}: ${ok.map(c=>c.color+c.number).join(' ')}</div>`;
   }).join('');
 }
+function getDeckCards(){
+  const d=[];
+  for(const c of COLORS)for(let n=1;n<=10;n++){
+    if(isRem(c.name,n))continue;
+    if(hand.some(h=>h.color===c.name&&h.number===n))continue;
+    if(spaces.some(s=>s&&s.color===c.name&&s.number===n))continue;
+    d.push({color:c.name,number:n});
+  }
+  return d;
+}
+function maxHandChain(hc,sps){
+  if(!hc.length)return 0;
+  const n=hc.length,memo=new Map(),sk=s=>s?s.color+s.number:'X';
+  function dfs(mask,s0,s1){
+    const k=mask+'|'+sk(s0)+'|'+sk(s1);
+    if(memo.has(k))return memo.get(k);
+    let best=0;
+    for(let i=0;i<n;i++){
+      if(mask&(1<<i))continue;
+      const c=hc[i];
+      if(!s0||c.color===s0.color||c.number===s0.number)best=Math.max(best,1+dfs(mask|(1<<i),c,s1));
+      if(!s1||c.color===s1.color||c.number===s1.number)best=Math.max(best,1+dfs(mask|(1<<i),s0,c));
+    }
+    memo.set(k,best);return best;
+  }
+  return dfs(0,sps[0],sps[1]);
+}
 function calcSugs(){
+  const cp=(c,s)=>!s||c.color===s.color||c.number===s.number;
+  const deck=getDeckCards();
+  // デッキ色別・数字別残枚数
+  const cRem={},nRem={};
+  COLORS.forEach(c=>cRem[c.name]=0);
+  for(let n=1;n<=10;n++)nRem[n]=0;
+  deck.forEach(c=>{cRem[c.color]++;nRem[c.number]++;});
   const s=[];
   hand.forEach((card,ci)=>{
     [0,1].forEach(si=>{
       const sp=spaces[si];
-      if(sp&&card.color!==sp.color&&card.number!==sp.number) return;
-      let score=50,reason='';
-      if(!sp){score+=8;reason='空きスペース';}
-      else if(card.color===sp.color&&card.number===sp.number){score+=25;reason='完全一致';}
-      else if(card.color===sp.color){score+=15;reason='同色';}
-      else{score+=10;reason='同数字';}
-      const chain=hand.filter((c,j)=>j!==ci&&(c.color===card.color||c.number===card.number)).length;
-      score+=chain*6;
-      s.push({ci,card,si,score:Math.min(100,score),reason,chain});
+      if(!cp(card,sp))return;
+      const ns=[si===0?card:spaces[0],si===1?card:spaces[1]];
+      const nh=hand.filter((_,j)=>j!==ci);
+      const hPlay=nh.filter(c=>ns.some(ns2=>cp(c,ns2))).length;
+      const dPlay=deck.filter(c=>ns.some(ns2=>cp(c,ns2))).length;
+      const dTot=deck.length;
+      const dRatio=dTot>0?dPlay/dTot:0;
+      const chain=maxHandChain(nh,ns);
+      const noHP=nh.length>0&&hPlay===0;
+      const lowD=dRatio<0.15&&dTot>5;
+      const contEst=chain+dPlay;
+      // SP多様性スコア：異色SPは受け入れ広い、同色SPは狭い
+      const s0=ns[0],s1=ns[1];
+      let spDiv=0;
+      if(!s0||!s1){spDiv=20;}
+      else{
+        if(s0.color!==s1.color)spDiv+=15; else spDiv-=20;
+        if(s0.number!==s1.number)spDiv+=5;
+      }
+      // SP色のデッキ密度：残枚数の多い色がSPにある方が将来の出し口が広い
+      let deckDens=0;
+      if(s0)deckDens+=cRem[s0.color]||0;
+      if(s1)deckDens+=cRem[s1.color]||0;
+      const deckDensScore=Math.round(deckDens/20*15);
+      let reason='',base=0;
+      if(!sp){base=8;reason='空きスペース';}
+      else if(card.color===sp.color&&card.number===sp.number){base=25;reason='完全一致';}
+      else if(card.color===sp.color){base=15;reason='同色';}
+      else{base=10;reason='同数字';}
+      // 手連鎖の重みを下げ、SP多様性・デッキ密度を重視
+      let score=50+base+chain*5+spDiv+deckDensScore+Math.round(dRatio*15);
+      if(noHP)score-=25;
+      if(lowD)score-=15;
+      if(gameMode===70){if(noHP)score-=15;if(lowD)score-=10;}
+      score=Math.min(100,Math.max(0,score));
+      s.push({ci,card,si,score,reason,chain,hPlay,dPlay,dTot,dRatio,contEst,noHP,lowD,spDiv,ns});
     });
   });
-  s.sort((a,b)=>b.score-a.score);
+  s.sort((a,b)=>b.score-a.score||b.contEst-a.contEst);
   const tot=s.reduce((t,x)=>t+x.score,0)||1;
   s.forEach(x=>x.prob=x.score/tot);
   return s;
@@ -219,16 +287,34 @@ function updateSugs(){
   if(!s.length){el.innerHTML='<div style="font-size:12px;color:#E24B4A;">出せるカードがありません</div>';return;}
   el.innerHTML=s.slice(0,4).map((x,i)=>{
     const c=COLORS.find(q=>q.name===x.card.color);
-    const pct=Math.round(x.prob*100);
-    const bc=pct>=50?'#4a9a2a':pct>=30?'#c8850a':'#c03030';
+    const ce=x.contEst;
+    const cc=ce>=15?'#4a9a2a':ce>=6?'#c8850a':'#c03030';
     const badge=i===0?`<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:#1a3a1a;color:#7acc7a;margin-left:5px;">推奨</span>`:'';
+    // プレイ後のSP状態を表示
+    const ns0=x.ns[0],ns1=x.ns[1];
+    const c0=ns0?COLORS.find(q=>q.name===ns0.color):null;
+    const c1=ns1?COLORS.find(q=>q.name===ns1.color):null;
+    const sp0d=c0?dot(c0.hex,11)+`<span style="font-size:10px;">${ns0.number}</span>`:'<span style="font-size:10px;color:var(--text3);">空</span>';
+    const sp1d=c1?dot(c1.hex,11)+`<span style="font-size:10px;">${ns1.number}</span>`:'<span style="font-size:10px;color:var(--text3);">空</span>';
+    // SP同色警告
+    const sameSP=ns0&&ns1&&ns0.color===ns1.color;
+    const spBadge=sameSP?`<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#3a2a1a;color:#ffaa44;margin-left:4px;">SP同色</span>`:'';
+    const riskBadge=x.noHP?`<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#3a1a1a;color:#ff6b6b;margin-left:4px;">手詰まり注意</span>`:x.lowD?`<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#3a2a1a;color:#ffaa44;margin-left:4px;">枯渇注意</span>`:'';
+    const pct=Math.round(x.dRatio*100);
+    const bc=pct>=50?'#4a9a2a':pct>=25?'#c8850a':'#c03030';
     return `<div class="sug" style="${i===0?'border-color:#3a6a3a;':''}" onclick="playCard(${x.ci},${x.si})">
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="width:38px;height:32px;border-radius:7px;background:${c.hex};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;color:white;flex-shrink:0;">${x.card.number}</div>
-        <div style="flex:1;font-size:13px;"><span style="font-weight:500;">${x.card.color}${x.card.number}</span><span style="color:var(--text2);"> → SP${x.si+1}</span>${badge}<br><span style="color:var(--text3);font-size:11px;">${x.reason}　連鎖期待 ${x.chain}</span></div>
-        <span style="font-size:16px;font-weight:500;color:${bc};flex-shrink:0;">${pct}%</span>
+        <div style="flex:1;font-size:13px;min-width:0;"><span style="font-weight:500;">${x.card.color}${x.card.number}</span><span style="color:var(--text2);"> → SP${x.si+1}</span>${badge}<br><span style="color:var(--text3);font-size:11px;">${x.reason}　手連鎖:${x.chain}枚　→SP: <span style="display:inline-flex;align-items:center;gap:1px;">${sp0d}/<wbr>${sp1d}</span></span></div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:22px;font-weight:500;color:${cc};line-height:1;">${ce}</div>
+          <div style="font-size:9px;color:var(--text3);">継続期待枚数</div>
+        </div>
       </div>
-      <div class="pb-wrap"><div class="pb" style="width:${pct}%;background:${bc};"></div></div>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-top:4px;font-size:11px;color:var(--text3);">
+        <span>手残り:${x.hPlay}枚可</span><span style="color:var(--border2);">|</span><span>デッキ:${x.dPlay}/${x.dTot}枚適合</span>${spBadge}${riskBadge}
+      </div>
+      <div class="pb-wrap" style="margin-top:4px;"><div class="pb" style="width:${pct}%;background:${bc};"></div></div>
     </div>`;
   }).join('');
 }
@@ -337,7 +423,20 @@ function ok(){
   cm();renderSpaces();
 }
 function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;renderGrid();renderSpaces();renderHand();}
-renderGrid();renderSpaces();renderHand();
+function setMode(m){
+  gameMode=m;
+  const b60=document.getElementById('mode60'),b70=document.getElementById('mode70');
+  if(!b60||!b70)return;
+  if(m===60){
+    b60.style.cssText='font-size:11px;padding:5px 8px;background:#2a5fa8;color:white;border-color:#1d4a8a;';
+    b70.style.cssText='font-size:11px;padding:5px 8px;';
+  } else {
+    b60.style.cssText='font-size:11px;padding:5px 8px;';
+    b70.style.cssText='font-size:11px;padding:5px 8px;background:#7a2a7a;color:white;border-color:#5a1a5a;';
+  }
+  updateSugs();
+}
+renderGrid();renderSpaces();renderHand();setMode(60);
 </script>
 </body>
 </html>
