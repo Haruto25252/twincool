@@ -254,19 +254,32 @@ function calcSugs(){
       if(s0)deckDens+=cRem[s0.color]||0;
       if(s1)deckDens+=cRem[s1.color]||0;
       const deckDensScore=Math.round(deckDens/20*15);
+      // 2手先読み：次の手で達成できる最大デッキ適合枚数を評価
+      // 同色連鎖でSPを使い回せる手は null SPを維持できるため有利
+      let d2Best=dPlay;
+      if(nh.length>0){
+        nh.forEach(c2=>{
+          [0,1].forEach(si2=>{
+            if(!cp(c2,ns[si2]))return;
+            const ns2=[si2===0?c2:ns[0],si2===1?c2:ns[1]];
+            const d2=deck.filter(dc=>ns2.some(s2=>cp(dc,s2))).length;
+            if(d2>d2Best)d2Best=d2;
+          });
+        });
+      }
+      const d2Ratio=dTot>0?d2Best/dTot:0;
       let reason='',base=0;
       if(!sp){base=8;reason='空きスペース';}
       else if(card.color===sp.color&&card.number===sp.number){base=25;reason='完全一致';}
       else if(card.color===sp.color){base=15;reason='同色';}
       else{base=10;reason='同数字';}
-      // SP同色ペナルティは廃止：dRatioが実態を正確に反映する
-      // 同色でもデッキにその色が多ければ高スコアになるのが正しい
-      let score=50+base+chain*5+deckDensScore+Math.round(dRatio*25);
+      // dRatio（1手先）＋d2Ratio（2手先）で同点を正しく分離
+      let score=50+base+chain*5+deckDensScore+Math.round(dRatio*20)+Math.round(d2Ratio*10);
       if(noHP)score-=25;
       if(lowD)score-=15;
       if(gameMode===70){if(noHP)score-=15;if(lowD)score-=10;}
       score=Math.min(100,Math.max(0,score));
-      s.push({ci,card,si,score,reason,chain,hPlay,dPlay,dTot,dRatio,contEst,noHP,lowD,ns});
+      s.push({ci,card,si,score,reason,chain,hPlay,dPlay,dTot,dRatio,contEst,noHP,lowD,ns,d2Best});
     });
   });
   s.sort((a,b)=>b.score-a.score||b.contEst-a.contEst);
