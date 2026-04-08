@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TWIN COOL assistant</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{--bg:#1a1d26;--bg2:#22263a;--bg3:#2a2f42;--text:#e8e8f0;--text2:#9999aa;--text3:#555566;--border:#333350;--border2:#44446a;}
+body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min-height:100vh;padding:16px;}
+.app{max-width:480px;margin:0 auto;position:relative;}
+.sl{font-size:11px;font-weight:500;color:var(--text2);letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px;}
+.dv{height:0.5px;background:var(--border);margin:14px 0;}
+.card-grid{display:grid;grid-template-columns:28px repeat(10,1fr);gap:3px;align-items:center;width:100%;}
+.gh{font-size:11px;font-weight:500;color:var(--text2);text-align:center;height:28px;display:flex;align-items:center;justify-content:center;}
+.ic{width:28px;height:36px;display:flex;align-items:center;justify-content:center;}
+.cell{height:36px;border-radius:6px;border:0.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;cursor:pointer;user-select:none;transition:opacity .15s;}
+.cell.removed{opacity:.1;}
+.space-slot{width:80px;height:100px;border-radius:12px;border:1.5px dashed var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:var(--bg2);}
+.space-slot.has-card{border-style:solid;}
+.hand-card{width:58px;height:76px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;transition:transform .1s;}
+.hand-card:active{transform:scale(0.95);}
+.btn{padding:8px 14px;border-radius:8px;border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;cursor:pointer;}
+.btn-p{background:#2a5fa8;color:white;border-color:#1d4a8a;}
+.sug{padding:10px 12px;border-radius:10px;border:0.5px solid var(--border);margin-bottom:6px;cursor:pointer;background:var(--bg2);}
+.pb-wrap{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:5px;}
+.pb{height:100%;border-radius:3px;}
+.mo{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:20;}
+.md{background:var(--bg2);border-radius:14px;border:0.5px solid var(--border2);padding:18px;width:280px;}
+.cb{width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;}
+.cb.sel{border-color:#e8e8f0;}
+.nb{width:36px;height:36px;border-radius:8px;border:0.5px solid var(--border2);background:var(--bg3);color:var(--text);font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.nb.sel{background:#2a5fa8;color:white;border-color:#1d4a8a;}
+.nb.dis{opacity:.3;cursor:default;}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+  <span style="font-size:16px;font-weight:500;">TWIN COOL</span>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <div style="text-align:center;">
+      <div style="font-size:10px;color:var(--text2);">除外</div>
+      <div style="font-size:20px;font-weight:500;line-height:1;" id="rc">0</div>
+    </div>
+    <div style="color:var(--text3);font-size:16px;">/</div>
+    <div style="text-align:center;">
+      <div style="font-size:10px;color:var(--text2);">残り</div>
+      <div style="font-size:20px;font-weight:500;line-height:1;" id="rem">80</div>
+    </div>
+    <button class="btn" style="font-size:12px;padding:6px 10px;margin-left:4px;" onclick="resetAll()">リセット</button>
+  </div>
+</div>
+<div style="margin-bottom:14px;">
+  <div class="sl">カード残存表 <span style="font-weight:400;font-size:10px;color:var(--text3);">— タップで除外/復活</span></div>
+  <div class="card-grid" id="grid"></div>
+</div>
+<div class="dv"></div>
+<div style="margin-bottom:14px;">
+  <div class="sl">フリースペース</div>
+  <div style="display:flex;gap:12px;align-items:flex-start;">
+    <div style="text-align:center;">
+      <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">SP1</div>
+      <div class="space-slot" id="sp1" onclick="openModal('space',0)"></div>
+      <button class="btn" style="font-size:11px;padding:5px 0;margin-top:5px;width:80px;" onclick="clearSpace(0)">クリア</button>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">SP2</div>
+      <div class="space-slot" id="sp2" onclick="openModal('space',1)"></div>
+      <button class="btn" style="font-size:11px;padding:5px 0;margin-top:5px;width:80px;" onclick="clearSpace(1)">クリア</button>
+    </div>
+    <div style="flex:1;padding-left:6px;">
+      <div style="font-size:10px;color:var(--text2);margin-bottom:6px;">出せるカード</div>
+      <div id="hint" style="font-size:12px;color:var(--text2);line-height:2;"></div>
+    </div>
+  </div>
+</div>
+<div class="dv"></div>
+<div style="margin-bottom:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div class="sl">手札 <span id="hc" style="font-weight:400;">(0/5)</span></div>
+    <button class="btn btn-p" style="font-size:13px;padding:8px 14px;" onclick="openModal('hand',null)">+ 追加</button>
+  </div>
+  <div id="hand-area" style="display:flex;gap:8px;flex-wrap:wrap;min-height:80px;align-items:flex-start;">
+    <span style="font-size:12px;color:var(--text3);padding-top:28px;">追加ボタンで手札を入力</span>
+  </div>
+</div>
+<div class="dv"></div>
+<div>
+  <div class="sl" style="margin-bottom:8px;">提案</div>
+  <div id="sugs"><span style="font-size:12px;color:var(--text3);">手札を入力すると提案が表示されます</span></div>
+</div>
+<div id="modal-root"></div>
+</div>
+<script>
+const COLORS=[
+  {name:'赤',hex:'#E24B4A'},{name:'青',hex:'#378ADD'},
+  {name:'緑',hex:'#2B9A4A'},{name:'黄',hex:'#EF9F27'},
+  {name:'灰',hex:'#A0A09A'},{name:'シアン',hex:'#29B8C2'},
+  {name:'紫',hex:'#7F77DD'},{name:'ピンク',hex:'#D4537E'},
+];
+let removed={},spaces=[null,null],hand=[];
+let selColor=null,selNum=null,modalMode=null,modalTarget=null;
+const isRem=(c,n)=>!!removed[c+'_'+n];
+const togRem=(c,n)=>{const k=c+'_'+n;removed[k]?delete removed[k]:(removed[k]=true);renderGrid();updateSugs();updateHint();};
+function dot(hex,s=14){return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}"><circle cx="${s/2}" cy="${s/2}" r="${s/2-0.5}" fill="${hex}"/></svg>`;}
+function updateCounts(){
+  const rc=Object.keys(removed).length;
+  document.getElementById('rc').textContent=rc;
+  document.getElementById('rem').textContent=Math.max(0,80-rc-hand.length);
+}
+function renderGrid(){
+  const el=document.getElementById('grid');
+  let h='<div class="ic"></div>';
+  for(let n=1;n<=10;n++) h+=`<div class="gh">${n}</div>`;
+  COLORS.forEach(c=>{
+    h+=`<div class="ic">${dot(c.hex,18)}</div>`;
+    for(let n=1;n<=10;n++){
+      const rem=isRem(c.name,n);
+      h+=`<div class="cell${rem?' removed':''}" style="background:${rem?'var(--bg3)':c.hex+'2a'};color:${rem?'var(--text3)':c.hex};" onclick="togRem('${c.name}',${n})">${n}</div>`;
+    }
+  });
+  el.innerHTML=h;
+  updateCounts();
+}
+function renderSpaces(){
+  [0,1].forEach(i=>{
+    const el=document.getElementById(`sp${i+1}`),card=spaces[i];
+    if(card){
+      const c=COLORS.find(x=>x.name===card.color);
+      el.classList.add('has-card');
+      el.style.cssText=`border-color:${c.hex};background:${c.hex}22;border-style:solid;`;
+      el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="font-size:24px;font-weight:500;color:white;">${card.number}</span>${dot(c.hex,18)}<span style="font-size:10px;color:rgba(255,255,255,.7);">${card.color}</span></div>`;
+    } else {
+      el.classList.remove('has-card');el.style.cssText='';
+      el.innerHTML=`<span style="font-size:11px;color:var(--text3);text-align:center;line-height:1.7;">タップして<br>設定</span>`;
+    }
+  });
+  updateHint();updateSugs();
+}
+function clearSpace(i){spaces[i]=null;renderSpaces();}
+function renderHand(){
+  const el=document.getElementById('hand-area');
+  document.getElementById('hc').textContent=`(${hand.length}/5)`;
+  if(!hand.length){el.innerHTML='<span style="font-size:12px;color:var(--text3);padding-top:28px;">追加ボタンで手札を入力</span>';updateSugs();updateHint();updateCounts();return;}
+  el.innerHTML=hand.map((card,i)=>{
+    const c=COLORS.find(x=>x.name===card.color);
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="hand-card" style="background:${c.hex};" onclick="removeHand(${i})"><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}<span style="font-size:9px;color:rgba(255,255,255,.6);">×削除</span></div></div>`;
+  }).join('');
+  updateSugs();updateHint();updateCounts();
+}
+function removeHand(i){hand.splice(i,1);renderHand();}
+function updateHint(){
+  const el=document.getElementById('hint');
+  if(!hand.length){el.textContent='手札を入力すると表示';return;}
+  el.innerHTML=[0,1].map(si=>{
+    const sp=spaces[si],ok=hand.filter(c=>!sp||c.color===sp.color||c.number===sp.number);
+    if(!sp) return `<div>SP${si+1}: 何でも可</div>`;
+    if(!ok.length) return `<div style="color:#E24B4A;">SP${si+1}: 出せるカードなし</div>`;
+    return `<div>SP${si+1}: ${ok.map(c=>c.color+c.number).join(' ')}</div>`;
+  }).join('');
+}
+function calcSugs(){
+  const s=[];
+  hand.forEach((card,ci)=>{
+    [0,1].forEach(si=>{
+      const sp=spaces[si];
+      if(sp&&card.color!==sp.color&&card.number!==sp.number) return;
+      let score=50,reason='';
+      if(!sp){score+=8;reason='空きスペース';}
+      else if(card.color===sp.color&&card.number===sp.number){score+=25;reason='完全一致';}
+      else if(card.color===sp.color){score+=15;reason='同色';}
+      else{score+=10;reason='同数字';}
+      const chain=hand.filter((c,j)=>j!==ci&&(c.color===card.color||c.number===card.number)).length;
+      score+=chain*6;
+      s.push({ci,card,si,score:Math.min(100,score),reason,chain});
+    });
+  });
+  s.sort((a,b)=>b.score-a.score);
+  const tot=s.reduce((t,x)=>t+x.score,0)||1;
+  s.forEach(x=>x.prob=x.score/tot);
+  return s;
+}
+function updateSugs(){
+  const el=document.getElementById('sugs');
+  if(!hand.length){el.innerHTML='<span style="font-size:12px;color:var(--text3);">手札を入力すると提案が表示されます</span>';return;}
+  const s=calcSugs();
+  if(!s.length){el.innerHTML='<div style="font-size:12px;color:#E24B4A;">出せるカードがありません</div>';return;}
+  el.innerHTML=s.slice(0,4).map((x,i)=>{
+    const c=COLORS.find(q=>q.name===x.card.color);
+    const pct=Math.round(x.prob*100);
+    const bc=pct>=50?'#4a9a2a':pct>=30?'#c8850a':'#c03030';
+    const badge=i===0?`<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:#1a3a1a;color:#7acc7a;margin-left:5px;">推奨</span>`:'';
+    return `<div class="sug" style="${i===0?'border-color:#3a6a3a;':''}" onclick="playCard(${x.ci},${x.si})">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:38px;height:32px;border-radius:7px;background:${c.hex};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;color:white;flex-shrink:0;">${x.card.number}</div>
+        <div style="flex:1;font-size:13px;"><span style="font-weight:500;">${x.card.color}${x.card.number}</span><span style="color:var(--text2);"> → SP${x.si+1}</span>${badge}<br><span style="color:var(--text3);font-size:11px;">${x.reason}　連鎖期待 ${x.chain}</span></div>
+        <span style="font-size:16px;font-weight:500;color:${bc};flex-shrink:0;">${pct}%</span>
+      </div>
+      <div class="pb-wrap"><div class="pb" style="width:${pct}%;background:${bc};"></div></div>
+    </div>`;
+  }).join('');
+}
+function playCard(ci,si){spaces[si]=hand[ci];hand.splice(ci,1);renderHand();renderSpaces();}
+function openModal(mode,target){
+  if(mode==='hand'&&hand.length>=5) return;
+  modalMode=mode;modalTarget=target;selColor=null;selNum=null;renderModal();
+}
+function renderModal(){
+  const title=modalMode==='hand'?'手札にカードを追加':`SP${modalTarget+1}のカードを設定`;
+  document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)">
+    <div class="md" onclick="event.stopPropagation()">
+      <div style="font-size:14px;font-weight:500;margin-bottom:12px;">${title}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">色</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        ${COLORS.map(c=>`<div class="cb${selColor===c.name?' sel':''}" style="background:${c.hex};" onclick="sc('${c.name}')" title="${c.name}"></div>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">数字</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+        ${[1,2,3,4,5,6,7,8,9,10].map(n=>{const d=selColor&&isRem(selColor,n);return `<div class="nb${selNum===n?' sel':''}${d?' dis':''}" onclick="${d?'':'sn('+n+')'}">${n}</div>`;}).join('')}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" style="flex:1;padding:10px;" onclick="cm()">キャンセル</button>
+        <button class="btn btn-p" style="flex:1;padding:10px;" onclick="ok()">確定</button>
+      </div>
+    </div>
+  </div>`;
+}
+function sc(n){selColor=n;renderModal();}
+function sn(n){selNum=n;renderModal();}
+function cbg(e){if(e.target.classList.contains('mo')) cm();}
+function cm(){document.getElementById('modal-root').innerHTML='';}
+function ok(){
+  if(!selColor||!selNum) return;
+  const card={color:selColor,number:selNum};
+  if(modalMode==='hand') hand.push(card);
+  else spaces[modalTarget]=card;
+  cm();renderHand();renderSpaces();
+}
+function resetAll(){removed={};spaces=[null,null];hand=[];renderGrid();renderSpaces();renderHand();}
+renderGrid();renderSpaces();renderHand();
+</script>
+</body>
+</html>
