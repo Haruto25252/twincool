@@ -107,7 +107,8 @@ function dot(hex,s=14){return `<svg width="${s}" height="${s}" viewBox="0 0 ${s}
 function updateCounts(){
   const rc=Object.keys(removed).length;
   document.getElementById('rc').textContent=rc;
-  document.getElementById('rem').textContent=Math.max(0,80-rc-hand.length);
+  const sc=spaces.filter(s=>s!==null).length;
+  document.getElementById('rem').textContent=Math.max(0,80-rc-hand.length-sc);
 }
 function renderGrid(){
   const el=document.getElementById('grid');
