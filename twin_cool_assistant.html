@@ -52,7 +52,10 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
   </div>
 </div>
 <div style="margin-bottom:14px;">
-  <div class="sl">カード残存表 <span style="font-weight:400;font-size:10px;color:var(--text3);">— タップで除外/復活</span></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div class="sl" style="margin-bottom:0;">カード残存表 <span id="grid-sub" style="font-weight:400;font-size:10px;color:var(--text3);">— タップで除外/復活</span></div>
+    <button class="btn" id="lock-btn" style="font-size:12px;padding:5px 9px;opacity:0.4;" onclick="toggleGridLock()" disabled>🔒 ロック</button>
+  </div>
   <div class="card-grid" id="grid"></div>
 </div>
 <div class="dv"></div>
@@ -99,17 +102,40 @@ const COLORS=[
   {name:'灰',hex:'#A0A09A'},{name:'シアン',hex:'#29B8C2'},
   {name:'紫',hex:'#7F77DD'},{name:'ピンク',hex:'#D4537E'},
 ];
-let removed={},spaces=[null,null],hand=[];
+let removed={},spaces=[null,null],hand=[],gridLocked=false;
 let selColor=null,selNum=null,modalMode=null,modalTarget=null;
 const isRem=(c,n)=>!!removed[c+'_'+n];
-const togRem=(c,n)=>{const k=c+'_'+n;removed[k]?delete removed[k]:(removed[k]=true);renderGrid();updateSugs();updateHint();};
+const togRem=(c,n)=>{if(gridLocked)return;const k=c+'_'+n;removed[k]?delete removed[k]:(removed[k]=true);renderGrid();updateSugs();updateHint();};
 function dot(hex,s=14){return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}"><circle cx="${s/2}" cy="${s/2}" r="${s/2-0.5}" fill="${hex}"/></svg>`;}
 function updateCounts(){
   const rc=Object.keys(removed).length;
   document.getElementById('rc').textContent=rc;
-  const sc=spaces.filter(s=>s!==null).length;
+  const sc=spaces.filter(s=>s!==null&&!isRem(s.color,s.number)).length;
   document.getElementById('rem').textContent=Math.max(0,80-rc-hand.length-sc);
 }
+function updateLockButton(){
+  const btn=document.getElementById('lock-btn');
+  const sub=document.getElementById('grid-sub');
+  if(!btn) return;
+  const rc=Object.keys(removed).length;
+  if(gridLocked){
+    btn.textContent='🔓 解除';
+    btn.disabled=false;
+    btn.style.cssText='font-size:12px;padding:5px 9px;opacity:1;background:#6a2a8a;border-color:#4a1a6a;color:white;';
+    if(sub) sub.textContent='— ロック中';
+  } else {
+    btn.textContent='🔒 ロック';
+    const canLock=rc>=10;
+    btn.disabled=!canLock;
+    if(canLock){
+      btn.style.cssText='font-size:12px;padding:5px 9px;opacity:1;background:#2a5fa8;border-color:#1d4a8a;color:white;';
+    } else {
+      btn.style.cssText='font-size:12px;padding:5px 9px;opacity:0.4;';
+    }
+    if(sub) sub.textContent='— タップで除外/復活';
+  }
+}
+function toggleGridLock(){gridLocked=!gridLocked;renderGrid();}
 function renderGrid(){
   const el=document.getElementById('grid');
   let h='<div class="ic"></div>';
@@ -118,11 +144,12 @@ function renderGrid(){
     h+=`<div class="ic">${dot(c.hex,18)}</div>`;
     for(let n=1;n<=10;n++){
       const rem=isRem(c.name,n);
-      h+=`<div class="cell${rem?' removed':''}" style="background:${rem?'var(--bg3)':c.hex+'2a'};color:${rem?'var(--text3)':c.hex};" onclick="togRem('${c.name}',${n})">${n}</div>`;
+      h+=`<div class="cell${rem?' removed':''}" style="background:${rem?'var(--bg3)':c.hex+'2a'};color:${rem?'var(--text3)':c.hex};${gridLocked?'cursor:default;':''}" onclick="togRem('${c.name}',${n})">${n}</div>`;
     }
   });
   el.innerHTML=h;
   updateCounts();
+  updateLockButton();
 }
 function renderSpaces(){
   [0,1].forEach(i=>{
@@ -202,7 +229,15 @@ function updateSugs(){
     </div>`;
   }).join('');
 }
-function playCard(ci,si){spaces[si]=hand[ci];hand.splice(ci,1);renderHand();renderSpaces();}
+function playCard(ci,si){
+  const card=hand[ci];
+  removed[card.color+'_'+card.number]=true;
+  spaces[si]=card;
+  hand.splice(ci,1);
+  renderGrid();
+  renderHand();
+  renderSpaces();
+}
 function openModal(mode,target){
   if(mode==='hand'&&hand.length>=5) return;
   modalMode=mode;modalTarget=target;selColor=null;selNum=null;renderModal();
@@ -238,7 +273,7 @@ function ok(){
   else spaces[modalTarget]=card;
   cm();renderHand();renderSpaces();
 }
-function resetAll(){removed={};spaces=[null,null];hand=[];renderGrid();renderSpaces();renderHand();}
+function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;renderGrid();renderSpaces();renderHand();}
 renderGrid();renderSpaces();renderHand();
 </script>
 </body>
