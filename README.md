@@ -35,7 +35,7 @@ TWIN COOL は、8色×10枚（計80枚）のカードを使う一人用のカー
 
 ## アシスタントツールの使い方
 
-`twin_cool_assistant.html` をブラウザで開くと使用できます。
+[ここ](https://Haruto25252.github.io/twincool/twin_cool_assistant.html)をブラウザで開くと使用できます。
 
 ### 機能一覧
 
