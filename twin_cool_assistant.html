@@ -36,6 +36,7 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 .warn-flash{animation:flash 0.35s ease 4;color:#ff6b6b;font-size:12px;text-align:center;margin-bottom:10px;font-weight:500;}
 @keyframes modePulse{0%,100%{opacity:1}50%{opacity:0.25}}
 .mode-diff{animation:modePulse 0.8s ease-in-out infinite;}
+.cell.in-hand{opacity:.42;cursor:default;}
 </style>
 </head>
 <body>
@@ -176,7 +177,10 @@ function renderGrid(){
     h+=`<div class="ic">${dot(c.hex,18)}</div>`;
     for(let n=1;n<=10;n++){
       const rem=isRem(c.name,n);
-      h+=`<div class="cell${rem?' removed':''}" style="background:${rem?'var(--bg3)':c.hex+'2a'};color:${rem?'var(--text3)':c.hex};${gridLocked?'cursor:default;':''}" onclick="togRem('${c.name}',${n})">${n}</div>`;
+      const inHand=!rem&&hand.some(hc=>hc.color===c.name&&hc.number===n);
+      const cls='cell'+(rem?' removed':inHand?' in-hand':'');
+      const noClick=gridLocked||inHand;
+      h+=`<div class="${cls}" style="background:${rem?'var(--bg3)':c.hex+'2a'};color:${rem?'var(--text3)':c.hex};${noClick?'cursor:default;':''}" ${noClick?'':'onclick="togRem(\''+c.name+'\','+n+')"'}>${n}</div>`;
     }
   });
   el.innerHTML=h;
@@ -202,12 +206,12 @@ function clearSpace(i){spaces[i]=null;renderSpaces();}
 function renderHand(){
   const el=document.getElementById('hand-area');
   document.getElementById('hc').textContent=`(${hand.length}/5)`;
-  if(!hand.length){el.innerHTML='<span style="font-size:12px;color:var(--text3);padding-top:28px;">追加ボタンで手札を入力</span>';updateSugs();updateHint();updateCounts();return;}
+  if(!hand.length){el.innerHTML='<span style="font-size:12px;color:var(--text3);padding-top:28px;">追加ボタンで手札を入力</span>';renderGrid();updateSugs();updateHint();updateCounts();return;}
   el.innerHTML=hand.map((card,i)=>{
     const c=COLORS.find(x=>x.name===card.color);
     return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="hand-card" style="background:${c.hex};" onclick="removeHand(${i})"><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}<span style="font-size:9px;color:rgba(255,255,255,.6);">×削除</span></div></div>`;
   }).join('');
-  updateSugs();updateHint();updateCounts();
+  renderGrid();updateSugs();updateHint();updateCounts();
 }
 function removeHand(i){hand.splice(i,1);renderHand();}
 function updateHint(){
