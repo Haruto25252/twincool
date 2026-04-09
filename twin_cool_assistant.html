@@ -34,6 +34,8 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 .nb.dis{opacity:.3;cursor:default;}
 @keyframes flash{0%,100%{opacity:1}40%{opacity:0.05}}
 .warn-flash{animation:flash 0.35s ease 4;color:#ff6b6b;font-size:12px;text-align:center;margin-bottom:10px;font-weight:500;}
+@keyframes modePulse{0%,100%{opacity:1}50%{opacity:0.25}}
+.mode-diff{animation:modePulse 0.8s ease-in-out infinite;}
 </style>
 </head>
 <body>
@@ -326,9 +328,9 @@ function calcSugs(){
 }
 function updateSugs(){
   const el=document.getElementById('sugs');
-  if(!hand.length){el.innerHTML='<span style="font-size:12px;color:var(--text3);">手札を入力すると提案が表示されます</span>';return;}
+  if(!hand.length){el.innerHTML='<span style="font-size:12px;color:var(--text3);">手札を入力すると提案が表示されます</span>';updateModeDiffBtns(null);return;}
   const s=calcSugs();
-  if(!s.length){el.innerHTML='<div style="font-size:12px;color:#E24B4A;">出せるカードがありません</div>';return;}
+  if(!s.length){el.innerHTML='<div style="font-size:12px;color:#E24B4A;">出せるカードがありません</div>';updateModeDiffBtns(null);return;}
   el.innerHTML=s.slice(0,4).map((x,i)=>{
     const c=COLORS.find(q=>q.name===x.card.color);
     const badge=i===0?`<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:#1a3a1a;color:#7acc7a;margin-left:5px;">推奨</span>`:'';
@@ -387,6 +389,8 @@ function updateSugs(){
       </div>`;
     }
   }).join('');
+  const curTop=s[0]?s[0].card.color+s[0].card.number+'_'+s[0].si:null;
+  updateModeDiffBtns(curTop);
 }
 function playCard(ci,si){
   const card=hand[ci];
@@ -491,6 +495,18 @@ function ok(){
   if(selColors.length===0||selNums.length===0) return;
   spaces[modalTarget]={color:selColors[0],number:selNums[0]};
   cm();renderSpaces();
+}
+function getSugForMode(m){
+  const sv=gameMode;gameMode=m;
+  const sg=calcSugs();gameMode=sv;
+  return sg[0]?sg[0].card.color+sg[0].card.number+'_'+sg[0].si:null;
+}
+function updateModeDiffBtns(curTop){
+  [{id:'mode60',m:60},{id:'mode70',m:70},{id:'modeChain',m:'chain'}].forEach(({id,m})=>{
+    const btn=document.getElementById(id);if(!btn)return;
+    btn.classList.remove('mode-diff');
+    if(m!==gameMode&&curTop&&getSugForMode(m)!==curTop)btn.classList.add('mode-diff');
+  });
 }
 function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;renderGrid();renderSpaces();renderHand();}
 function setMode(m){
