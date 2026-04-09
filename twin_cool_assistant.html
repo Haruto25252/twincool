@@ -523,6 +523,10 @@ function startSimulation(){
   if(simRunning)return;
   const el=document.getElementById('sim-result'),btn=document.getElementById('sim-btn');
   if(!el||!btn)return;
+  if(!hand.length){
+    el.innerHTML='<span style="color:var(--text2);">手札を入力してから実行してください</span>';
+    return;
+  }
   // スナップショット取得
   const initDeck=getDeckCards();
   const initHand=hand.map(c=>({...c}));
@@ -540,14 +544,13 @@ function startSimulation(){
     for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=deck[i];deck[i]=deck[j];deck[j]=t;}
     let played=0;
     for(;;){
-      // 出せる手をすべて列挙
       const moves=[];
       for(let ci=0;ci<h.length;ci++)for(let si=0;si<2;si++)if(cp(h[ci],sp[si]))moves.push(ci*2+si);
       if(!moves.length)break;
       const mv=moves[Math.floor(Math.random()*moves.length)];
       const ci=mv>>1,si=mv&1;
       sp[si]=h[ci];h.splice(ci,1);played++;
-      if(alreadyPlayed+played>=70)break; // 70達成で終了
+      if(alreadyPlayed+played>=70)break;
       if(deck.length>0)h.push(deck.pop());
     }
     const total=alreadyPlayed+played;
@@ -564,12 +567,14 @@ function startSimulation(){
       simRunning=false;btn.disabled=false;btn.style.opacity='1';
       const p60=Math.round(pass60/TRIALS*100),p70=Math.round(pass70/TRIALS*100);
       const col=(p)=>p>=70?'#4a9a2a':p>=40?'#c8850a':'#c03030';
+      const spNote=initSp.every(s=>!s)?'<span style="color:var(--text3);"> ・SP未設定=何でも出せる扱い</span>':'';
       el.innerHTML=`<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:5px;">
         <div style="display:flex;align-items:baseline;gap:4px;"><span style="font-size:11px;color:var(--text2);">60枚クリア</span><span style="font-size:22px;font-weight:500;color:${col(p60)};">${p60}%</span></div>
         <div style="display:flex;align-items:baseline;gap:4px;"><span style="font-size:11px;color:var(--text2);">70枚クリア</span><span style="font-size:22px;font-weight:500;color:${col(p70)};">${p70}%</span></div>
+        <span style="font-size:11px;color:var(--text3);">現在 ${alreadyPlayed} 枚消費済み</span>
       </div>
       <div class="pb-wrap"><div class="pb" style="width:${p60}%;background:${col(p60)};"></div></div>
-      <div style="font-size:10px;color:var(--text3);margin-top:5px;">※ランダムプレイ1000回の結果。最適プレイでは実際にはより高くなります</div>`;
+      <div style="font-size:10px;color:var(--text3);margin-top:5px;">※ランダムプレイ基準のため序盤ほど低く出ます。実際の最適プレイでは大幅に高くなります${spNote}</div>`;
     }
   }
   setTimeout(nextBatch,0);
