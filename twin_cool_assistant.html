@@ -37,12 +37,21 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 @keyframes modePulse{0%,100%{opacity:1}50%{opacity:0.25}}
 .mode-diff{animation:modePulse 0.8s ease-in-out infinite;}
 .cell.in-hand{opacity:.42;cursor:default;}
+@keyframes tutPulse{0%,100%{box-shadow:0 0 0 0 rgba(74,154,42,.9)}65%{box-shadow:0 0 0 8px rgba(74,154,42,0)}}
+.tut-hl{animation:tutPulse 1.4s ease-out infinite;outline:2.5px solid #4a9a2a;outline-offset:3px;border-radius:6px;}
+#tut-tip{position:fixed;z-index:90;background:#0e1e0e;border:1.5px solid #3a7a3a;border-radius:13px;padding:14px 15px;width:238px;max-width:calc(100vw - 16px);box-shadow:0 8px 32px rgba(0,0,0,.85);font-size:12.5px;line-height:1.65;color:var(--text);display:none;}
+.tut-tri{width:0;height:0;position:absolute;left:50%;transform:translateX(-50%);}
+.tut-tri.up{border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:9px solid #3a7a3a;top:-10px;}
+.tut-tri.down{border-left:9px solid transparent;border-right:9px solid transparent;border-top:9px solid #3a7a3a;bottom:-10px;}
 </style>
 </head>
 <body>
 <div class="app" id="app">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-  <span style="font-size:16px;font-weight:500;">TWIN COOL</span>
+  <div style="display:flex;align-items:center;gap:7px;">
+    <span style="font-size:16px;font-weight:500;">TWIN COOL</span>
+    <button onclick="startTutorial()" title="使い方" style="font-size:12px;font-weight:700;width:22px;height:22px;border-radius:50%;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;">?</button>
+  </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <div style="text-align:center;">
       <div style="font-size:10px;color:var(--text2);">除外</div>
@@ -89,7 +98,7 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 <div style="margin-bottom:14px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
     <div class="sl">手札 <span id="hc" style="font-weight:400;">(0/5)</span></div>
-    <button class="btn btn-p" style="font-size:13px;padding:8px 14px;" onclick="openModal('hand',null)">+ 追加</button>
+    <button class="btn btn-p" id="add-btn" style="font-size:13px;padding:8px 14px;" onclick="openModal('hand',null)">+ 追加</button>
   </div>
   <div id="hand-area" style="display:flex;gap:8px;flex-wrap:wrap;min-height:80px;align-items:flex-start;">
     <span style="font-size:12px;color:var(--text3);padding-top:28px;">追加ボタンで手札を入力</span>
@@ -99,7 +108,7 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 <div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
     <div class="sl" style="margin-bottom:0;">提案</div>
-    <div style="display:flex;gap:4px;align-items:center;">
+    <div id="mode-row" style="display:flex;gap:4px;align-items:center;">
       <span style="font-size:10px;color:var(--text2);">目標:</span>
       <button class="btn" id="mode60" style="font-size:11px;padding:5px 8px;" onclick="setMode(60)">60枚</button>
       <button class="btn" id="mode70" style="font-size:11px;padding:5px 8px;" onclick="setMode(70)">70枚</button>
@@ -126,6 +135,17 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
   <div style="font-size:10px;letter-spacing:.06em;color:var(--text3);">© 2026&nbsp;&nbsp;Produced by Harun</div>
 </div>
 <div id="modal-root"></div>
+<div id="tut-tip">
+  <div class="tut-tri up" id="tut-tri"></div>
+  <div id="tut-msg" style="margin-bottom:10px;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <span id="tut-counter" style="font-size:11px;color:var(--text3);"></span>
+    <div style="display:flex;gap:7px;">
+      <button class="btn" style="font-size:11px;padding:4px 10px;" onclick="closeTut()">閉じる</button>
+      <button class="btn btn-p" id="tut-next" style="font-size:11px;padding:4px 10px;" onclick="tutNext()">次へ →</button>
+    </div>
+  </div>
+</div>
 </div>
 <script>
 const COLORS=[
@@ -144,7 +164,7 @@ function updateCounts(){
   const rc=Object.keys(removed).length;
   document.getElementById('rc').textContent=rc;
   const sc=spaces.filter(s=>s!==null&&!isRem(s.color,s.number)).length;
-  document.getElementById('rem').textContent=Math.max(0,80-rc-hand.length-sc);
+  document.getElementById('rem').textContent=Math.max(0,80-rc-sc);
 }
 function updateLockButton(){
   const btn=document.getElementById('lock-btn');
@@ -177,10 +197,11 @@ function renderGrid(){
     h+=`<div class="ic">${dot(c.hex,18)}</div>`;
     for(let n=1;n<=10;n++){
       const rem=isRem(c.name,n);
-      const inHand=!rem&&hand.some(hc=>hc.color===c.name&&hc.number===n);
-      const cls='cell'+(rem?' removed':inHand?' in-hand':'');
-      const noClick=gridLocked||inHand;
-      h+=`<div class="${cls}" style="background:${rem?'var(--bg3)':c.hex+'2a'};color:${rem?'var(--text3)':c.hex};${noClick?'cursor:default;':''}" ${noClick?'':'onclick="togRem(\''+c.name+'\','+n+')"'}>${n}</div>`;
+      const onSP=!rem&&spaces.some(s=>s&&s.color===c.name&&s.number===n);
+      const inHand=!rem&&!onSP&&hand.some(hc=>hc.color===c.name&&hc.number===n);
+      const cls='cell'+((rem||onSP)?' removed':inHand?' in-hand':'');
+      const noClick=gridLocked||inHand||onSP;
+      h+=`<div class="${cls}" style="background:${(rem||onSP)?'var(--bg3)':c.hex+'2a'};color:${(rem||onSP)?'var(--text3)':c.hex};${noClick?'cursor:default;':''}" ${noClick?'':'onclick="togRem(\''+c.name+'\','+n+')"'}>${n}</div>`;
     }
   });
   el.innerHTML=h;
@@ -212,6 +233,8 @@ function renderHand(){
     return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="hand-card" style="background:${c.hex};" onclick="removeHand(${i})"><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}<span style="font-size:9px;color:rgba(255,255,255,.6);">×削除</span></div></div>`;
   }).join('');
   renderGrid();updateSugs();updateHint();updateCounts();
+  const ab=document.getElementById('add-btn');
+  if(ab){if(hand.length>=5){ab.className='btn';ab.style.cssText='font-size:13px;padding:8px 14px;opacity:0.4;cursor:not-allowed;';}else{ab.className='btn btn-p';ab.style.cssText='font-size:13px;padding:8px 14px;';}}
 }
 function removeHand(i){hand.splice(i,1);renderHand();}
 function updateHint(){
@@ -517,12 +540,13 @@ function addCards(){
     if(hand.length>=5) break;
   }
   selColors=[];selNums=[];
-  renderModal();renderHand();
+  if(hand.length>=5){cm();}else{renderModal();}
+  renderHand();
 }
 function ok(){
   if(selColors.length===0||selNums.length===0) return;
   spaces[modalTarget]={color:selColors[0],number:selNums[0]};
-  cm();renderSpaces();
+  cm();renderSpaces();renderGrid();
 }
 function getSugForMode(m){
   const sv=gameMode;gameMode=m;
@@ -657,6 +681,61 @@ function loadState(){
   if(!h||!h.trim())return;
   if(!decodeState(h.trim()))showToast('読込に失敗しました（コードが無効です）',true);
   else showToast('状態を読み込みました');
+}
+let tutIdx=-1;
+const TUT=[
+  {sel:'#grid',
+   msg:'<b>① カード除外</b><br>ゲーム開始時に裏向きにされたカードをここでタップして除外してね！除外したカードはほぼ見えなくなるよ（最低10枚除外でロックできる）'},
+  {sel:'#lock-btn',
+   msg:'<b>② グリッドロック</b><br>10枚以上除外したらここをタップ！ロック中は誤タップを防げるよ。再タップで解除できる'},
+  {sel:'#add-btn',
+   msg:'<b>③ 手札入力</b><br>今の手札をここから追加してね！色を選んで数字を選んで「カードを追加」でOK。色・数字は複数同時選択もできるよ'},
+  {sel:'#sugs',
+   msg:'<b>④ 提案カード</b><br>手札を入力するとここに出すべきカードが提案されるよ！一番上が最おすすめ。タップするとそのカードを出したことになる'},
+  {sel:'#mode-row',
+   msg:'<b>⑤ モード選択</b><br>・<b>60/70枚</b>：目標枚数消費を目指す戦略提案<br>・<b>連鎖</b>：手札から最大連鎖できる手順を提案（デッキ消費は考慮しない）<br><br>モードで推奨が違う場合、そのボタンが点滅するよ！'},
+];
+function startTutorial(){tutIdx=0;renderTutStep();}
+function tutNext(){
+  document.querySelectorAll('.tut-hl').forEach(e=>e.classList.remove('tut-hl'));
+  tutIdx++;
+  if(tutIdx>=TUT.length){closeTut();return;}
+  renderTutStep();
+}
+function closeTut(){
+  document.querySelectorAll('.tut-hl').forEach(e=>e.classList.remove('tut-hl'));
+  const tip=document.getElementById('tut-tip');if(tip)tip.style.display='none';
+  tutIdx=-1;
+}
+function renderTutStep(){
+  const step=TUT[tutIdx];
+  const target=document.querySelector(step.sel);
+  if(!target){tutNext();return;}
+  target.classList.add('tut-hl');
+  target.scrollIntoView({behavior:'smooth',block:'nearest'});
+  const tip=document.getElementById('tut-tip');if(!tip)return;
+  document.getElementById('tut-msg').innerHTML=step.msg;
+  document.getElementById('tut-counter').textContent=`${tutIdx+1} / ${TUT.length}`;
+  const nextBtn=document.getElementById('tut-next');
+  if(nextBtn)nextBtn.textContent=tutIdx===TUT.length-1?'完了 ✓':'次へ →';
+  tip.style.display='block';
+  setTimeout(()=>{
+    const r=target.getBoundingClientRect();
+    const vw=window.innerWidth,vh=window.innerHeight;
+    const tw=238,th=tip.offsetHeight||140;
+    const cx=r.left+r.width/2;
+    const placeBelow=(r.top<vh*0.55)||(r.bottom+th+16<vh);
+    const top=placeBelow?r.bottom+12:r.top-th-12;
+    const left=Math.min(Math.max(cx-tw/2,8),vw-tw-8);
+    const tri=document.getElementById('tut-tri');
+    if(tri){
+      tri.className='tut-tri '+(placeBelow?'up':'down');
+      tri.style.left=Math.min(Math.max(cx-left,16),tw-16)+'px';
+      tri.style.transform='none';
+    }
+    tip.style.top=Math.max(8,top)+'px';
+    tip.style.left=left+'px';
+  },120);
 }
 function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;renderGrid();renderSpaces();renderHand();}
 function setMode(m){
