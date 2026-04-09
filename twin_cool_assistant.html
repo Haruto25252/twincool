@@ -521,21 +521,26 @@ function encodeState(){
   push(hand.length,3); // hand length
   for(let i=0;i<5;i++)push(i<hand.length?ci(hand[i].color,hand[i].number):0,7); // hand cards
   push(gameMode===60?0:gameMode===70?1:2,2); // mode
-  while(bits.length%4)bits.push(0); // pad to nibble
-  let h='';
-  for(let i=0;i<bits.length;i+=4)h+=(bits[i]*8+bits[i+1]*4+bits[i+2]*2+bits[i+3]).toString(16);
-  return h.toUpperCase();
+  // bits → BigInt → base62
+  let val=0n;for(const b of bits)val=(val<<1n)|BigInt(b);
+  const B62='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',b=BigInt(62);
+  let s='';for(let i=0;i<24;i++){s=B62[Number(val%b)]+s;val/=b;}
+  return s;
 }
-function decodeState(h){
+function decodeState(s){
   try{
-    const bits=[];
-    for(const ch of h){const v=parseInt(ch,16);if(isNaN(v))return false;bits.push((v>>3)&1,(v>>2)&1,(v>>1)&1,v&1);}
-    let p=0;
-    const rd=(len)=>{let v=0;for(let i=0;i<len;i++)v=(v<<1)|(bits[p++]||0);return v;};
+    s=s.trim();if(s.length!==24)return false;
+    const B62='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',b=BigInt(62);
+    let val=0n;
+    for(const ch of s){const d=B62.indexOf(ch);if(d<0)return false;val=val*b+BigInt(d);}
+    // BigInt → bits (MSB first)
+    const BITS=138,ba=new Array(BITS);
+    for(let i=BITS-1;i>=0;i--){ba[i]=Number(val&1n);val>>=1n;}
+    let p=0;const rd=(len)=>{let v=0;for(let i=0;i<len;i++)v=(v<<1)|ba[p++];return v;};
     if(rd(4)!==1)return false; // version check
     const nr={};
     for(const c of COLORS)for(let n=1;n<=10;n++){if(rd(1))nr[c.name+'_'+n]=true;}
-    const c2card=(v)=>{if(!v)return null;const idx=v-1;const ci=Math.floor(idx/10);return ci<COLORS.length?{color:COLORS[ci].name,number:idx%10+1}:null;};
+    const c2card=(v)=>{if(!v)return null;const idx=v-1,ci=Math.floor(idx/10);return ci<COLORS.length?{color:COLORS[ci].name,number:idx%10+1}:null;};
     const sp0=c2card(rd(7)),sp1=c2card(rd(7));
     const hlen=Math.min(rd(3),5);const nh=[];
     for(let i=0;i<5;i++){const v=rd(7);if(i<hlen&&v<COLORS.length*10)nh.push({color:COLORS[Math.floor(v/10)].name,number:v%10+1});}
@@ -563,7 +568,7 @@ function copyState(){
 function loadState(){
   const h=window.prompt('状態コードを貼り付けてください:','');
   if(!h||!h.trim())return;
-  if(!decodeState(h.trim().toUpperCase()))showToast('読込に失敗しました（コードが無効です）',true);
+  if(!decodeState(h.trim()))showToast('読込に失敗しました（コードが無効です）',true);
   else showToast('状態を読み込みました');
 }
 function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;renderGrid();renderSpaces();renderHand();}
