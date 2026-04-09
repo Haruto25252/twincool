@@ -331,7 +331,9 @@ function calcSugs(){
           });
         }
         const d2Ratio=dTot>0?d2Best/dTot:0;
-        let score=50+base+chain*5+deckDensScore+Math.round(dRatio*20)+Math.round(d2Ratio*10);
+        // base: 完全一致の過大評価を抑制（25→10, 15→9, 10→8, 空き→6）
+        const baseTrim=base===25?10:base===15?9:base===10?8:6;
+        let score=50+baseTrim+chain*10+deckDensScore+Math.round(dRatio*25)+Math.round(d2Ratio*10);
         if(noHP)score-=25;
         if(lowD)score-=15;
         if(gameMode===70){if(noHP)score-=15;if(lowD)score-=10;}
@@ -340,7 +342,10 @@ function calcSugs(){
       }
     });
   });
-  s.sort((a,b)=>b.score-a.score||b.chain-a.chain||b.dPlay-a.dPlay);
+  s.sort((a,b)=>{
+    if(a.noHP!==b.noHP)return a.noHP?1:-1; // 手詰まりは常に最後
+    return b.contEst-a.contEst||b.score-a.score||b.chain-a.chain||b.dPlay-a.dPlay;
+  });
   const tot=s.reduce((t,x)=>t+x.score,0)||1;
   s.forEach(x=>x.prob=x.score/tot);
   return s;
