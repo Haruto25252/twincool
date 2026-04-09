@@ -278,11 +278,11 @@ function calcSugs(){
       if(noHP)score-=25;
       if(lowD)score-=15;
       if(gameMode===70){if(noHP)score-=15;if(lowD)score-=10;}
-      score=Math.min(100,Math.max(0,score));
+      score=Math.max(0,score);
       s.push({ci,card,si,score,reason,chain,hPlay,dPlay,dTot,dRatio,contEst,noHP,lowD,ns,d2Best});
     });
   });
-  s.sort((a,b)=>b.score-a.score||b.contEst-a.contEst);
+  s.sort((a,b)=>b.score-a.score||b.chain-a.chain||b.dPlay-a.dPlay);
   const tot=s.reduce((t,x)=>t+x.score,0)||1;
   s.forEach(x=>x.prob=x.score/tot);
   return s;
