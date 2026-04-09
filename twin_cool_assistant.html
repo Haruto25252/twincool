@@ -107,6 +107,14 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
   </div>
   <div id="sugs"><span style="font-size:12px;color:var(--text3);">手札を入力すると提案が表示されます</span></div>
 </div>
+<div class="dv"></div>
+<div style="margin-bottom:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div class="sl" style="margin-bottom:0;">クリア確率シミュレーション</div>
+    <button class="btn" id="sim-btn" style="font-size:12px;padding:5px 10px;" onclick="startSimulation()">実行 (1000回)</button>
+  </div>
+  <div id="sim-result" style="font-size:12px;color:var(--text3);">手札・SPを設定してから実行してください</div>
+</div>
 <div id="modal-root"></div>
 </div>
 <script>
@@ -509,6 +517,62 @@ function updateModeDiffBtns(curTop){
     btn.classList.remove('mode-diff');
     if(m!==gameMode&&curTop&&getSugForMode(m)!==curTop)btn.classList.add('mode-diff');
   });
+}
+let simRunning=false;
+function startSimulation(){
+  if(simRunning)return;
+  const el=document.getElementById('sim-result'),btn=document.getElementById('sim-btn');
+  if(!el||!btn)return;
+  // スナップショット取得
+  const initDeck=getDeckCards();
+  const initHand=hand.map(c=>({...c}));
+  const initSp=spaces.map(s=>s?{...s}:null);
+  const alreadyPlayed=Object.keys(removed).length+spaces.filter(s=>s&&!isRem(s.color,s.number)).length;
+  simRunning=true;btn.disabled=true;btn.style.opacity='0.5';
+  el.innerHTML='<span style="color:var(--text2);">計算中... 0 / 1000</span>';
+  const TRIALS=1000,BATCH=100;
+  let done=0,pass60=0,pass70=0;
+  const cp=(c,s)=>!s||c.color===s.color||c.number===s.number;
+  function runOne(){
+    const h=initHand.map(c=>({...c}));
+    const sp=initSp.map(s=>s?{...s}:null);
+    const deck=initDeck.map(c=>({...c}));
+    for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=deck[i];deck[i]=deck[j];deck[j]=t;}
+    let played=0;
+    for(;;){
+      // 出せる手をすべて列挙
+      const moves=[];
+      for(let ci=0;ci<h.length;ci++)for(let si=0;si<2;si++)if(cp(h[ci],sp[si]))moves.push(ci*2+si);
+      if(!moves.length)break;
+      const mv=moves[Math.floor(Math.random()*moves.length)];
+      const ci=mv>>1,si=mv&1;
+      sp[si]=h[ci];h.splice(ci,1);played++;
+      if(alreadyPlayed+played>=70)break; // 70達成で終了
+      if(deck.length>0)h.push(deck.pop());
+    }
+    const total=alreadyPlayed+played;
+    if(total>=60)pass60++;
+    if(total>=70)pass70++;
+  }
+  function nextBatch(){
+    const end=Math.min(done+BATCH,TRIALS);
+    while(done<end){runOne();done++;}
+    if(done<TRIALS){
+      el.innerHTML=`<span style="color:var(--text2);">計算中... ${done} / ${TRIALS}</span>`;
+      setTimeout(nextBatch,0);
+    }else{
+      simRunning=false;btn.disabled=false;btn.style.opacity='1';
+      const p60=Math.round(pass60/TRIALS*100),p70=Math.round(pass70/TRIALS*100);
+      const col=(p)=>p>=70?'#4a9a2a':p>=40?'#c8850a':'#c03030';
+      el.innerHTML=`<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:5px;">
+        <div style="display:flex;align-items:baseline;gap:4px;"><span style="font-size:11px;color:var(--text2);">60枚クリア</span><span style="font-size:22px;font-weight:500;color:${col(p60)};">${p60}%</span></div>
+        <div style="display:flex;align-items:baseline;gap:4px;"><span style="font-size:11px;color:var(--text2);">70枚クリア</span><span style="font-size:22px;font-weight:500;color:${col(p70)};">${p70}%</span></div>
+      </div>
+      <div class="pb-wrap"><div class="pb" style="width:${p60}%;background:${col(p60)};"></div></div>
+      <div style="font-size:10px;color:var(--text3);margin-top:5px;">※ランダムプレイ1000回の結果。最適プレイでは実際にはより高くなります</div>`;
+    }
+  }
+  setTimeout(nextBatch,0);
 }
 function encodeState(){
   const ci=(col,n)=>COLORS.findIndex(x=>x.name===col)*10+(n-1);
