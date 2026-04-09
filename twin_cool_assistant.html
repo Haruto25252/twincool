@@ -340,7 +340,10 @@ function calcSugs(){
       }
     });
   });
-  s.sort((a,b)=>b.score-a.score||b.chain-a.chain||b.dPlay-a.dPlay);
+  s.sort((a,b)=>{
+    if(a.noHP!==b.noHP)return a.noHP?1:-1; // 手詰まりは常に最後
+    return b.contEst-a.contEst||b.score-a.score||b.chain-a.chain||b.dPlay-a.dPlay;
+  });
   const tot=s.reduce((t,x)=>t+x.score,0)||1;
   s.forEach(x=>x.prob=x.score/tot);
   return s;
