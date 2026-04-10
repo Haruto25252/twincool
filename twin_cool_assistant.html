@@ -67,8 +67,8 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
     </div>
     <div style="color:var(--text3);font-size:14px;">/</div>
     <div style="text-align:center;">
-      <div style="font-size:9px;color:var(--text2);">連鎖</div>
-      <div style="font-size:18px;font-weight:500;line-height:1;" id="chain-ct">0</div>
+      <div style="font-size:9px;color:var(--text2);">出した枚数</div>
+      <div style="font-size:18px;font-weight:500;line-height:1;" id="played-ct">0</div>
     </div>
   </div>
   <div style="display:flex;gap:5px;align-items:center;">
@@ -136,7 +136,7 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
       <button class="btn" id="sim-t1" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(1000)">1k</button>
       <button class="btn" id="sim-t2" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(5000)">5k</button>
       <button class="btn" id="sim-t3" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(10000)">10k</button>
-      <button class="btn" id="sim-btn" style="font-size:12px;padding:5px 10px;margin-left:4px;" onclick="startSimulation()">シミュレーション開始</button>
+      <button class="btn" id="sim-btn" style="font-size:12px;padding:5px 10px;margin-left:4px;" onclick="startSimulation()">実行</button>
     </div>
   </div>
   <div id="sim-result" style="font-size:12px;color:var(--text3);">手札・SPを設定してから実行してください</div>
@@ -173,7 +173,7 @@ const COLORS=[
   {name:'灰',hex:'#A0A09A'},{name:'シアン',hex:'#29B8C2'},
   {name:'紫',hex:'#7F77DD'},{name:'ピンク',hex:'#D4537E'},
 ];
-let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false,prePlayState=null,prePlayLocked=false;
+let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false,prePlayState=null,prePlayLocked=false,playedCount=0;
 let selColors=[],selNums=[],modalMode=null,modalTarget=null,showWarn=false;
 let simTrials=1000;
 const isRem=(c,n)=>!!removed[c+'_'+n];
@@ -185,8 +185,8 @@ function updateCounts(){
   document.getElementById('rc').textContent=rc;
   const sc=spaces.filter(s=>s!==null&&!isRem(s.color,s.number)).length;
   document.getElementById('rem').textContent=Math.max(0,80-rc-sc);
-  const cc=document.getElementById('chain-ct');
-  if(cc)cc.textContent=hand.length?maxHandChain(hand,spaces):0;
+  const pc=document.getElementById('played-ct');
+  if(pc)pc.textContent=playedCount;
 }
 function updateLockButton(){
   const btn=document.getElementById('lock-btn');
@@ -476,6 +476,7 @@ function playCard(ci,si){
   removed[card.color+'_'+card.number]=true;
   spaces[si]=card;
   hand.splice(ci,1);
+  playedCount++;
   if(playMode){
     const deck=getDeckCards();
     if(deck.length>0){const idx=Math.floor(Math.random()*deck.length);hand.push({...deck[idx]});}
@@ -903,6 +904,7 @@ function drawToFive(){
   renderHand();
 }
 function startPlay(){
+  prePlayState=encodeState();prePlayLocked=gridLocked;
   if(!gridLocked){
     document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)"><div class="md" onclick="event.stopPropagation()">
       <div style="font-size:13px;line-height:1.7;margin-bottom:18px;">初期カードをランダムに<b>10枚除外</b>しますか？<br><span style="font-size:11px;color:var(--text3);">スキップすると現在の除外状態のまま進みます</span></div>
@@ -929,7 +931,7 @@ function _playStep2(){
     enterPlayMode();
   }
 }
-function enterPlayMode(){prePlayState=encodeState();prePlayLocked=gridLocked;playMode=true;renderPlayMode();renderSpaces();showToast('プレイ開始！');}
+function enterPlayMode(){playedCount=0;playMode=true;renderPlayMode();renderSpaces();showToast('プレイ開始！');}
 function exitPlayMode(){
   document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)"><div class="md" onclick="event.stopPropagation()">
     <div style="font-size:13px;line-height:1.7;margin-bottom:18px;">プレイ開始時の状態に戻しますか？</div>
@@ -941,7 +943,7 @@ function exitPlayMode(){
 }
 function _doExitPlay(restore){
   const saved=prePlayState,savedLocked=prePlayLocked;
-  playMode=false;prePlayState=null;prePlayLocked=false;
+  playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;
   if(restore&&saved){decodeState(saved);gridLocked=savedLocked;renderGrid();}
   renderPlayMode();renderSpaces();
 }
@@ -956,12 +958,12 @@ function confirmRestartPlay(){
 }
 function _restartPlay(){
   const saved=prePlayState,savedLocked=prePlayLocked;
-  playMode=false;prePlayState=null;prePlayLocked=false;
+  playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;
   if(saved){decodeState(saved);gridLocked=savedLocked;renderGrid();}
   renderPlayMode();
   setTimeout(()=>startPlay(),80);
 }
-function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;playMode=false;prePlayState=null;renderGrid();renderSpaces();renderHand();renderPlayMode();}
+function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;renderGrid();renderSpaces();renderHand();renderPlayMode();}
 function setMode(m){
   gameMode=m;
   const b60=document.getElementById('mode60'),b70=document.getElementById('mode70'),bc=document.getElementById('modeChain');
