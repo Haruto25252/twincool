@@ -71,6 +71,7 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
     <button class="btn" style="font-size:11px;padding:5px 9px;" onclick="resetAll()">リセット</button>
   </div>
 </div>
+<div id="play-bar" style="margin-bottom:14px;"></div>
 <div style="margin-bottom:14px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
     <div class="sl" style="margin-bottom:0;">カード残存表 <span id="grid-sub" style="font-weight:400;font-size:10px;color:var(--text3);">— タップで除外/復活</span></div>
@@ -85,12 +86,12 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
     <div style="text-align:center;">
       <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">SP1</div>
       <div class="space-slot" id="sp1" onclick="openModal('space',0)"></div>
-      <button class="btn" style="font-size:11px;padding:5px 0;margin-top:5px;width:80px;" onclick="clearSpace(0)">クリア</button>
+      <button id="sp-clear-0" class="btn" style="font-size:11px;padding:5px 0;margin-top:5px;width:80px;" onclick="clearSpace(0)">クリア</button>
     </div>
     <div style="text-align:center;">
       <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">SP2</div>
       <div class="space-slot" id="sp2" onclick="openModal('space',1)"></div>
-      <button class="btn" style="font-size:11px;padding:5px 0;margin-top:5px;width:80px;" onclick="clearSpace(1)">クリア</button>
+      <button id="sp-clear-1" class="btn" style="font-size:11px;padding:5px 0;margin-top:5px;width:80px;" onclick="clearSpace(1)">クリア</button>
     </div>
     <div style="flex:1;padding-left:6px;">
       <div style="font-size:10px;color:var(--text2);margin-bottom:6px;">出せるカード</div>
@@ -161,7 +162,7 @@ const COLORS=[
   {name:'灰',hex:'#A0A09A'},{name:'シアン',hex:'#29B8C2'},
   {name:'紫',hex:'#7F77DD'},{name:'ピンク',hex:'#D4537E'},
 ];
-let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60;
+let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false;
 let selColors=[],selNums=[],modalMode=null,modalTarget=null,showWarn=false;
 const isRem=(c,n)=>!!removed[c+'_'+n];
 const countCombos=(colors,nums)=>{let c=0;for(const cl of colors)for(const n of nums)if(!isRem(cl,n))c++;return c;};
@@ -227,6 +228,8 @@ function renderSpaces(){
       el.classList.remove('has-card');el.style.cssText='';
       el.innerHTML=`<span style="font-size:11px;color:var(--text3);text-align:center;line-height:1.7;">タップして<br>設定</span>`;
     }
+    const cb=document.getElementById(`sp-clear-${i}`);
+    if(cb)cb.style.display=playMode?'none':'block';
   });
   updateHint();updateSugs();
 }
@@ -455,6 +458,11 @@ function playCard(ci,si){
   removed[card.color+'_'+card.number]=true;
   spaces[si]=card;
   hand.splice(ci,1);
+  if(playMode){
+    const deck=getDeckCards();
+    if(deck.length>0){const idx=Math.floor(Math.random()*deck.length);hand.push({...deck[idx]});}
+    renderPlayMode();
+  }
   renderGrid();
   renderHand();
   renderSpaces();
@@ -485,6 +493,21 @@ function renderModal(){
           <button class="btn" style="flex:1;padding:10px;" onclick="clearSel()">選択解除</button>
           <button class="btn btn-p" style="flex:1;padding:10px;" onclick="addCards()">カードを追加</button>
         </div>
+      </div>
+    </div>`;
+  } else if(playMode){
+    const sp=spaces[modalTarget];
+    document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)">
+      <div class="md" onclick="event.stopPropagation()">
+        <div style="font-size:14px;font-weight:500;margin-bottom:12px;">SP${modalTarget+1}に出すカードを選択</div>
+        ${hand.length===0?'<div style="font-size:12px;color:var(--text3);margin-bottom:16px;">手札がありません</div>':''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+          ${hand.map((card,i)=>{const c=COLORS.find(x=>x.name===card.color);const canPlay=!sp||card.color===sp.color||card.number===sp.number;return `<div style="width:52px;height:68px;border-radius:9px;background:${canPlay?c.hex:'var(--bg3)'};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:${canPlay?'pointer':'default'};opacity:${canPlay?1:0.3};border:0.5px solid ${canPlay?c.hex:'var(--border2)'};" ${canPlay?`onclick="playCard(${i},${modalTarget});cm()"`:''}>
+            <span style="font-size:18px;font-weight:500;color:white;">${card.number}</span>
+            <span style="font-size:8px;color:rgba(255,255,255,.7);">${card.color}</span>
+          </div>`;}).join('')}
+        </div>
+        <button class="btn" style="width:100%;padding:10px;" onclick="cm()">キャンセル</button>
       </div>
     </div>`;
   } else {
@@ -748,7 +771,7 @@ function loadState(){
   if(!decodeState(h.trim()))showToast('読込に失敗しました（コードが無効です）',true);
   else showToast('状態を読み込みました');
 }
-let tutIdx=-1;
+let tutIdx=-1,tutScrollListener=null;
 const TUT=[
   {sel:'#grid',
    msg:'<b>① カード除外</b><br>ゲーム開始時に裏向きにされたカードをここでタップして除外してね！除外したカードはほぼ見えなくなるよ（最低10枚除外でロックできる）'},
@@ -769,28 +792,30 @@ function tutNext(){
   renderTutStep();
 }
 function closeTut(){
+  if(tutScrollListener){window.removeEventListener('scroll',tutScrollListener,{passive:true});tutScrollListener=null;}
   document.querySelectorAll('.tut-hl').forEach(e=>e.classList.remove('tut-hl'));
   const tip=document.getElementById('tut-tip');if(tip)tip.style.display='none';
   tutIdx=-1;
 }
 function renderTutStep(){
+  if(tutScrollListener){window.removeEventListener('scroll',tutScrollListener,{passive:true});tutScrollListener=null;}
   const step=TUT[tutIdx];
   const target=document.querySelector(step.sel);
   if(!target){tutNext();return;}
+  document.querySelectorAll('.tut-hl').forEach(e=>e.classList.remove('tut-hl'));
   target.classList.add('tut-hl');
-  target.scrollIntoView({behavior:'smooth',block:'nearest'});
   const tip=document.getElementById('tut-tip');if(!tip)return;
   document.getElementById('tut-msg').innerHTML=step.msg;
   document.getElementById('tut-counter').textContent=`${tutIdx+1} / ${TUT.length}`;
   const nextBtn=document.getElementById('tut-next');
   if(nextBtn)nextBtn.textContent=tutIdx===TUT.length-1?'完了 ✓':'次へ →';
   tip.style.display='block';
-  setTimeout(()=>{
+  function posTip(ensureVis){
     const r=target.getBoundingClientRect();
     const vw=window.innerWidth,vh=window.innerHeight;
     const tw=238,th=tip.offsetHeight||140;
     const cx=r.left+r.width/2;
-    const placeBelow=(r.top<vh*0.55)||(r.bottom+th+16<vh);
+    const placeBelow=(r.top>=0&&r.top<vh*0.55)||(r.bottom+th+16<vh);
     const top=placeBelow?r.bottom+12:r.top-th-12;
     const left=Math.min(Math.max(cx-tw/2,8),vw-tw-8);
     const tri=document.getElementById('tut-tri');
@@ -801,9 +826,19 @@ function renderTutStep(){
     }
     tip.style.top=Math.max(8,top)+'px';
     tip.style.left=left+'px';
-  },120);
+    if(ensureVis){
+      const tt=parseFloat(tip.style.top),tb=tt+(tip.offsetHeight||th);
+      if(tb>vh-8)window.scrollBy({top:tb-vh+24,behavior:'smooth'});
+      else if(tt<8)window.scrollBy({top:tt-8,behavior:'smooth'});
+    }
+  }
+  target.scrollIntoView({behavior:'smooth',block:'nearest'});
+  setTimeout(()=>posTip(true),350);
+  tutScrollListener=()=>posTip(false);
+  window.addEventListener('scroll',tutScrollListener,{passive:true});
 }
 function minimizeTut(){
+  if(tutScrollListener){window.removeEventListener('scroll',tutScrollListener,{passive:true});tutScrollListener=null;}
   const tip=document.getElementById('tut-tip'),mini=document.getElementById('tut-mini');
   if(tip)tip.style.display='none';
   if(mini)mini.style.display='block';
@@ -814,7 +849,62 @@ function expandTut(){
   if(tutIdx<0)tutIdx=0;
   renderTutStep();
 }
-function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;renderGrid();renderSpaces();renderHand();}
+function renderPlayMode(){
+  const el=document.getElementById('play-bar');if(!el)return;
+  if(playMode){
+    const deckCount=getDeckCards().length;
+    el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:0.5px solid #3a7a3a;border-radius:10px;padding:10px 14px;">
+      <div><div style="font-size:12px;font-weight:600;color:#7acc7a;">▶ プレイ中</div><div style="font-size:10px;color:var(--text3);margin-top:2px;">デッキ残り ${deckCount} 枚</div></div>
+      <button class="btn" style="font-size:11px;padding:5px 12px;" onclick="exitPlayMode()">■ 終了</button>
+    </div>`;
+  } else {
+    el.innerHTML=`<button class="btn btn-p" style="font-size:13px;padding:10px 18px;width:100%;display:block;" onclick="startPlay()">▶ プレイ開始</button>`;
+  }
+}
+function randomExclude10(){
+  const deck=[];
+  for(const c of COLORS)for(let n=1;n<=10;n++)if(!isRem(c.name,n)&&!hand.some(h=>h.color===c.name&&h.number===n)&&!spaces.some(s=>s&&s.color===c.name&&s.number===n))deck.push({color:c.name,number:n});
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=deck[i];deck[i]=deck[j];deck[j]=t;}
+  deck.slice(0,Math.min(10,deck.length)).forEach(c=>{removed[c.color+'_'+c.number]=true;});
+  renderGrid();
+}
+function drawToFive(){
+  const need=5-hand.length;if(need<=0)return;
+  const deck=getDeckCards();
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=deck[i];deck[i]=deck[j];deck[j]=t;}
+  deck.slice(0,Math.min(need,deck.length)).forEach(c=>hand.push({...c}));
+  renderHand();
+}
+function startPlay(){
+  if(!gridLocked){
+    document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)"><div class="md" onclick="event.stopPropagation()">
+      <div style="font-size:13px;line-height:1.7;margin-bottom:18px;">初期カードをランダムに<b>10枚除外</b>しますか？<br><span style="font-size:11px;color:var(--text3);">スキップすると現在の除外状態のまま進みます</span></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" style="flex:1;padding:10px;" onclick="cm();_playStep2()">スキップ</button>
+        <button class="btn btn-p" style="flex:1;padding:10px;" onclick="randomExclude10();cm();_playStep2()">はい</button>
+      </div>
+    </div></div>`;
+  } else {
+    _playStep2();
+  }
+}
+function _playStep2(){
+  const need=5-hand.length;
+  if(need>0){
+    document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)"><div class="md" onclick="event.stopPropagation()">
+      <div style="font-size:13px;line-height:1.7;margin-bottom:18px;">手札が${hand.length}枚です。デッキからランダムに<b>${need}枚補充</b>しますか？</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" style="flex:1;padding:10px;" onclick="cm();enterPlayMode()">スキップ</button>
+        <button class="btn btn-p" style="flex:1;padding:10px;" onclick="drawToFive();cm();enterPlayMode()">はい</button>
+      </div>
+    </div></div>`;
+  } else {
+    enterPlayMode();
+  }
+}
+function enterPlayMode(){playMode=true;renderPlayMode();renderSpaces();showToast('プレイ開始！');}
+function exitPlayMode(){playMode=false;renderPlayMode();renderSpaces();}
+function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;playMode=false;renderGrid();renderSpaces();renderHand();renderPlayMode();}
 function setMode(m){
   gameMode=m;
   const b60=document.getElementById('mode60'),b70=document.getElementById('mode70'),bc=document.getElementById('modeChain');
@@ -824,7 +914,7 @@ function setMode(m){
   bc.style.cssText='font-size:11px;padding:5px 8px;'+(m==='chain'?'background:#1a6a3a;color:white;border-color:#0a4a2a;':'');
   updateSugs();
 }
-renderGrid();renderSpaces();renderHand();setMode(60);
+renderGrid();renderSpaces();renderHand();setMode(60);renderPlayMode();
 </script>
 </body>
 </html>
