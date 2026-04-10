@@ -16,10 +16,14 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 .ic{width:28px;height:36px;display:flex;align-items:center;justify-content:center;}
 .cell{height:36px;border-radius:6px;border:0.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;cursor:pointer;user-select:none;transition:opacity .15s;}
 .cell.removed{opacity:.1;}
-.space-slot{width:80px;height:100px;border-radius:12px;border:1.5px dashed var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:var(--bg2);}
+.space-slot{width:80px;height:100px;border-radius:12px;border:1.5px dashed var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:var(--bg2);transition:box-shadow .15s,opacity .15s;}
 .space-slot.has-card{border-style:solid;}
-.hand-card{width:58px;height:76px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;transition:transform .1s;}
+.sp-sel{box-shadow:0 0 0 2.5px white,0 0 12px rgba(255,255,255,.4);}
+.sp-dim{opacity:0.35;}
+.hand-card{width:58px;height:76px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;transition:transform .15s,box-shadow .15s,opacity .15s;}
 .hand-card:active{transform:scale(0.95);}
+.hand-card-sel{box-shadow:0 0 0 2.5px white,0 0 10px rgba(255,255,255,.5);transform:scale(1.06);}
+.hand-card-dim{opacity:0.3;}
 .btn{padding:8px 14px;border-radius:8px;border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;cursor:pointer;}
 .btn-p{background:#2a5fa8;color:white;border-color:#1d4a8a;}
 .sug{padding:10px 12px;border-radius:10px;border:0.5px solid var(--border);margin-bottom:6px;cursor:pointer;background:var(--bg2);}
@@ -186,7 +190,7 @@ function updateCounts(){
   const sc=spaces.filter(s=>s!==null&&!isRem(s.color,s.number)).length;
   document.getElementById('rem').textContent=Math.max(0,80-rc-sc);
   const pc=document.getElementById('played-ct');
-  if(pc)pc.textContent=Math.max(0,Object.keys(removed).length-10);
+  if(pc)pc.textContent=playMode?Math.max(0,rc-10):sc;
 }
 function updateLockButton(){
   const btn=document.getElementById('lock-btn');
@@ -244,15 +248,15 @@ function renderSpaces(){
     const hasHandSel=playMode&&selectedHandIdx!==null;
     const hc=hasHandSel?hand[selectedHandIdx]:null;
     const canReceive=!hasHandSel||!hc||!spaces[i]||(hc.color===spaces[i].color||hc.number===spaces[i].number);
-    const selStyle=isSPSel?'box-shadow:0 0 0 2.5px white,0 0 12px rgba(255,255,255,.4);':'';
-    const dimStyle=hasHandSel&&!canReceive?'opacity:0.35;':'';
+    el.classList.toggle('sp-sel',isSPSel);
+    el.classList.toggle('sp-dim',hasHandSel&&!canReceive);
     if(card){
       const c=COLORS.find(x=>x.name===card.color);
       el.classList.add('has-card');
-      el.style.cssText=`border-color:${c.hex};background:${c.hex}22;border-style:solid;${selStyle}${dimStyle}`;
+      el.style.cssText=`border-color:${c.hex};background:${c.hex}22;border-style:solid;`;
       el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="font-size:24px;font-weight:500;color:white;">${card.number}</span>${dot(c.hex,18)}<span style="font-size:10px;color:rgba(255,255,255,.7);">${card.color}</span></div>`;
     } else {
-      el.classList.remove('has-card');el.style.cssText=selStyle;
+      el.classList.remove('has-card');el.style.cssText='';
       el.innerHTML=`<span style="font-size:11px;color:var(--text3);text-align:center;line-height:1.7;">タップして<br>${isSPSel?'<b style="color:white;">選択中</b>':'設定'}</span>`;
     }
     const cb=document.getElementById(`sp-clear-${i}`);
@@ -272,10 +276,9 @@ function renderHand(){
       const hasSPSel=selectedSpIdx!==null;
       const sp=hasSPSel?spaces[selectedSpIdx]:null;
       const canPlay=!hasSPSel||!sp||card.color===sp.color||card.number===sp.number;
-      const dim=hasSPSel&&!canPlay?'opacity:0.3;':'';
-      const glow=isSel?'box-shadow:0 0 0 2.5px white,0 0 10px rgba(255,255,255,.5);transform:scale(1.06);':'';
+      const cls='hand-card'+(isSel?' hand-card-sel':'')+(hasSPSel&&!canPlay?' hand-card-dim':'');
       const lbl=isSel?'✓ 選択中':'タップで選択';
-      return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="hand-card" style="background:${c.hex};${dim}${glow}" onclick="tapHandCard(${i})"><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}<span style="font-size:9px;color:rgba(255,255,255,${isSel?'.95':'.5'});">${lbl}</span></div></div>`;
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="${cls}" data-hidx="${i}" style="background:${c.hex};" onclick="tapHandCard(${i})"><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}<span style="font-size:9px;color:rgba(255,255,255,${isSel?'.95':'.5'});">${lbl}</span></div></div>`;
     }
     return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="hand-card" style="background:${c.hex};" onclick="removeHand(${i})"><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}<span style="font-size:9px;color:rgba(255,255,255,.6);">×削除</span></div></div>`;
   }).join('');
@@ -564,7 +567,7 @@ function renderModal(){
         </div>
         <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">数字</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
-          ${[1,2,3,4,5,6,7,8,9,10].map(n=>{const d=d1&&isRem(d1,n);return `<div class="nb${selNums.includes(n)?' sel':''}${d?' dis':''}" onclick="${d?'':'sn('+n+')'}">${n}</div>`;}).join('')}
+          ${[1,2,3,4,5,6,7,8,9,10].map(n=>{const ex=d1&&isRem(d1,n);return `<div class="nb${selNums.includes(n)?' sel':''}" style="${ex?'opacity:0.45;text-decoration:line-through;':''}" onclick="sn(${n})">${n}</div>`;}).join('')}
         </div>
         <div style="display:flex;gap:8px;">
           <button class="btn" style="flex:1;padding:10px;" onclick="cm()">キャンセル</button>
@@ -1011,6 +1014,37 @@ function _restartPlay(){
   setTimeout(()=>startPlay(),80);
 }
 function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;playSaveState=null;selectedHandIdx=null;selectedSpIdx=null;renderGrid();renderSpaces();renderHand();renderPlayMode();}
+function updateHandSelection(){
+  document.querySelectorAll('.hand-card[data-hidx]').forEach(el=>{
+    const i=parseInt(el.dataset.hidx);
+    if(i>=hand.length)return;
+    const card=hand[i];
+    const isSel=selectedHandIdx===i;
+    const hasSPSel=selectedSpIdx!==null;
+    const sp=hasSPSel?spaces[selectedSpIdx]:null;
+    const canPlay=!hasSPSel||!sp||card.color===sp.color||card.number===sp.number;
+    el.classList.toggle('hand-card-sel',isSel);
+    el.classList.toggle('hand-card-dim',hasSPSel&&!canPlay);
+    const spans=el.querySelectorAll('span');
+    const lbl=spans[spans.length-1];
+    if(lbl){lbl.textContent=isSel?'✓ 選択中':'タップで選択';lbl.style.color=`rgba(255,255,255,${isSel?'.95':'.5'})`;}
+  });
+}
+function updateSpaceSelection(){
+  [0,1].forEach(i=>{
+    const el=document.getElementById(`sp${i+1}`),card=spaces[i];
+    const isSPSel=playMode&&selectedSpIdx===i;
+    const hasHandSel=playMode&&selectedHandIdx!==null;
+    const hc=hasHandSel?hand[selectedHandIdx]:null;
+    const canReceive=!hasHandSel||!hc||!spaces[i]||(hc.color===spaces[i].color||hc.number===spaces[i].number);
+    el.classList.toggle('sp-sel',isSPSel);
+    el.classList.toggle('sp-dim',hasHandSel&&!canReceive);
+    if(!card){
+      const span=el.querySelector('span');
+      if(span)span.innerHTML=`タップして<br>${isSPSel?'<b style="color:white;">選択中</b>':'設定'}`;
+    }
+  });
+}
 function tapHandCard(ci){
   if(!playMode)return;
   if(selectedSpIdx!==null){
@@ -1019,9 +1053,9 @@ function tapHandCard(ci){
     const si=selectedSpIdx;selectedHandIdx=null;selectedSpIdx=null;
     playCard(ci,si);
   } else if(selectedHandIdx===ci){
-    selectedHandIdx=null;renderHand();renderSpaces();
+    selectedHandIdx=null;updateHandSelection();updateSpaceSelection();
   } else {
-    selectedHandIdx=ci;selectedSpIdx=null;renderHand();renderSpaces();
+    selectedHandIdx=ci;selectedSpIdx=null;updateHandSelection();updateSpaceSelection();
   }
 }
 function tapSpSlot(si){
@@ -1032,9 +1066,9 @@ function tapSpSlot(si){
     const ci=selectedHandIdx;selectedHandIdx=null;selectedSpIdx=null;
     playCard(ci,si);
   } else if(selectedSpIdx===si){
-    selectedSpIdx=null;renderSpaces();renderHand();
+    selectedSpIdx=null;updateSpaceSelection();updateHandSelection();
   } else {
-    selectedSpIdx=si;selectedHandIdx=null;renderSpaces();renderHand();
+    selectedSpIdx=si;selectedHandIdx=null;updateSpaceSelection();updateHandSelection();
   }
 }
 function setMode(m){
