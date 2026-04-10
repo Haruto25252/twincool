@@ -134,9 +134,9 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
     <div style="display:flex;gap:4px;align-items:center;">
       <span style="font-size:10px;color:var(--text2);">試行:</span>
       <button class="btn" id="sim-t1" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(1000)">1k</button>
-      <button class="btn" id="sim-t2" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(3000)">3k</button>
-      <button class="btn" id="sim-t3" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(5000)">5k</button>
-      <button class="btn" id="sim-btn" style="font-size:12px;padding:5px 10px;margin-left:4px;" onclick="startSimulation()">実行</button>
+      <button class="btn" id="sim-t2" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(5000)">5k</button>
+      <button class="btn" id="sim-t3" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(10000)">10k</button>
+      <button class="btn" id="sim-btn" style="font-size:12px;padding:5px 10px;margin-left:4px;" onclick="startSimulation()">シミュレーション開始</button>
     </div>
   </div>
   <div id="sim-result" style="font-size:12px;color:var(--text3);">手札・SPを設定してから実行してください</div>
@@ -173,7 +173,7 @@ const COLORS=[
   {name:'灰',hex:'#A0A09A'},{name:'シアン',hex:'#29B8C2'},
   {name:'紫',hex:'#7F77DD'},{name:'ピンク',hex:'#D4537E'},
 ];
-let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false,prePlayState=null;
+let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false,prePlayState=null,prePlayLocked=false;
 let selColors=[],selNums=[],modalMode=null,modalTarget=null,showWarn=false;
 let simTrials=1000;
 const isRem=(c,n)=>!!removed[c+'_'+n];
@@ -642,7 +642,7 @@ function makeRunner(){
 }
 function setSimTrials(n){
   simTrials=n;
-  [{id:'sim-t1',v:1000},{id:'sim-t2',v:3000},{id:'sim-t3',v:5000}].forEach(({id,v})=>{
+  [{id:'sim-t1',v:1000},{id:'sim-t2',v:5000},{id:'sim-t3',v:10000}].forEach(({id,v})=>{
     const b=document.getElementById(id);if(!b)return;
     b.style.cssText=`font-size:11px;padding:4px 7px;${v===n?'background:#2a5fa8;color:white;border-color:#1d4a8a;':''}`;
   });
@@ -884,7 +884,7 @@ function renderPlayMode(){
       <button class="btn" style="font-size:10px;padding:3px 8px;" onclick="exitPlayMode()">終了</button>
     </div>`;
   } else {
-    el.innerHTML=`<button class="btn" style="font-size:11px;padding:4px 9px;" onclick="startPlay()">▶ 開始</button>`;
+    el.innerHTML=`<button class="btn" style="font-size:11px;padding:4px 9px;" onclick="startPlay()">▶ プレイ</button>`;
   }
 }
 function randomExclude10(){
@@ -929,7 +929,7 @@ function _playStep2(){
     enterPlayMode();
   }
 }
-function enterPlayMode(){prePlayState=encodeState();playMode=true;renderPlayMode();renderSpaces();showToast('プレイ開始！');}
+function enterPlayMode(){prePlayState=encodeState();prePlayLocked=gridLocked;playMode=true;renderPlayMode();renderSpaces();showToast('プレイ開始！');}
 function exitPlayMode(){
   document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)"><div class="md" onclick="event.stopPropagation()">
     <div style="font-size:13px;line-height:1.7;margin-bottom:18px;">プレイ開始時の状態に戻しますか？</div>
@@ -940,9 +940,9 @@ function exitPlayMode(){
   </div></div>`;
 }
 function _doExitPlay(restore){
-  const saved=prePlayState;
-  playMode=false;prePlayState=null;
-  if(restore&&saved){decodeState(saved);}
+  const saved=prePlayState,savedLocked=prePlayLocked;
+  playMode=false;prePlayState=null;prePlayLocked=false;
+  if(restore&&saved){decodeState(saved);gridLocked=savedLocked;renderGrid();}
   renderPlayMode();renderSpaces();
 }
 function confirmRestartPlay(){
@@ -955,9 +955,9 @@ function confirmRestartPlay(){
   </div></div>`;
 }
 function _restartPlay(){
-  const saved=prePlayState;
-  playMode=false;prePlayState=null;
-  if(saved){decodeState(saved);}
+  const saved=prePlayState,savedLocked=prePlayLocked;
+  playMode=false;prePlayState=null;prePlayLocked=false;
+  if(saved){decodeState(saved);gridLocked=savedLocked;renderGrid();}
   renderPlayMode();
   setTimeout(()=>startPlay(),80);
 }
