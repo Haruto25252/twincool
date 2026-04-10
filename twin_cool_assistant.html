@@ -43,28 +43,32 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 .tut-tri{width:0;height:0;position:absolute;left:50%;transform:translateX(-50%);}
 .tut-tri.up{border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:9px solid #3a7a3a;top:-10px;}
 .tut-tri.down{border-left:9px solid transparent;border-right:9px solid transparent;border-top:9px solid #3a7a3a;bottom:-10px;}
+#tut-mini{position:fixed;bottom:16px;right:12px;z-index:90;display:none;}
+#tut-mini button{background:#0e1e0e;border:1.5px solid #3a7a3a;border-radius:20px;padding:8px 14px;font-size:12px;color:#7acc7a;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.65);}
 </style>
 </head>
 <body>
 <div class="app" id="app">
+<div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+  <span style="font-size:16px;font-weight:600;">TWIN COOL Assistant</span>
+  <button onclick="startTutorial()" title="使い方" style="font-size:12px;font-weight:700;width:22px;height:22px;border-radius:50%;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;">?</button>
+</div>
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-  <div style="display:flex;align-items:center;gap:7px;">
-    <span style="font-size:16px;font-weight:500;">TWIN COOL</span>
-    <button onclick="startTutorial()" title="使い方" style="font-size:12px;font-weight:700;width:22px;height:22px;border-radius:50%;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;">?</button>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <div style="text-align:center;">
+      <div style="font-size:9px;color:var(--text2);">除外</div>
+      <div style="font-size:18px;font-weight:500;line-height:1;" id="rc">0</div>
+    </div>
+    <div style="color:var(--text3);font-size:14px;">/</div>
+    <div style="text-align:center;">
+      <div style="font-size:9px;color:var(--text2);">残り</div>
+      <div style="font-size:18px;font-weight:500;line-height:1;" id="rem">80</div>
+    </div>
   </div>
-  <div style="display:flex;gap:8px;align-items:center;">
-    <div style="text-align:center;">
-      <div style="font-size:10px;color:var(--text2);">除外</div>
-      <div style="font-size:20px;font-weight:500;line-height:1;" id="rc">0</div>
-    </div>
-    <div style="color:var(--text3);font-size:16px;">/</div>
-    <div style="text-align:center;">
-      <div style="font-size:10px;color:var(--text2);">残り</div>
-      <div style="font-size:20px;font-weight:500;line-height:1;" id="rem">80</div>
-    </div>
+  <div style="display:flex;gap:5px;align-items:center;">
     <button class="btn" style="font-size:11px;padding:5px 8px;" onclick="copyState()" title="現在の状態をコードとしてコピー">状態コピー</button>
     <button class="btn" style="font-size:11px;padding:5px 8px;" onclick="loadState()" title="状態コードを貼り付けて復元">読込</button>
-    <button class="btn" style="font-size:12px;padding:6px 10px;margin-left:4px;" onclick="resetAll()">リセット</button>
+    <button class="btn" style="font-size:11px;padding:5px 9px;" onclick="resetAll()">リセット</button>
   </div>
 </div>
 <div style="margin-bottom:14px;">
@@ -124,6 +128,7 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
     <button class="btn" id="sim-btn" style="font-size:12px;padding:5px 10px;" onclick="startSimulation()">実行 (1000回)</button>
   </div>
   <div id="sim-result" style="font-size:12px;color:var(--text3);">手札・SPを設定してから実行してください</div>
+  <div id="sim-routes" style="margin-top:10px;"></div>
 </div>
 <div style="margin-top:32px;padding:18px 0 8px;border-top:0.5px solid var(--border);text-align:center;">
   <div style="display:flex;justify-content:center;gap:20px;margin-bottom:12px;">
@@ -137,15 +142,17 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 <div id="modal-root"></div>
 <div id="tut-tip">
   <div class="tut-tri up" id="tut-tri"></div>
-  <div id="tut-msg" style="margin-bottom:10px;"></div>
-  <div style="display:flex;justify-content:space-between;align-items:center;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
     <span id="tut-counter" style="font-size:11px;color:var(--text3);"></span>
-    <div style="display:flex;gap:7px;">
-      <button class="btn" style="font-size:11px;padding:4px 10px;" onclick="closeTut()">閉じる</button>
-      <button class="btn btn-p" id="tut-next" style="font-size:11px;padding:4px 10px;" onclick="tutNext()">次へ →</button>
-    </div>
+    <button onclick="minimizeTut()" title="最小化" style="background:none;border:1px solid #3a7a3a;border-radius:4px;color:#7acc7a;cursor:pointer;font-size:13px;line-height:1;padding:1px 7px;">−</button>
+  </div>
+  <div id="tut-msg" style="margin-bottom:10px;"></div>
+  <div style="display:flex;justify-content:flex-end;gap:7px;">
+    <button class="btn" style="font-size:11px;padding:4px 10px;" onclick="closeTut()">閉じる</button>
+    <button class="btn btn-p" id="tut-next" style="font-size:11px;padding:4px 10px;" onclick="tutNext()">次へ →</button>
   </div>
 </div>
+<div id="tut-mini"><button onclick="expandTut()">チュートリアルを開く</button></div>
 </div>
 <script>
 const COLORS=[
@@ -560,48 +567,52 @@ function updateModeDiffBtns(curTop){
     if(m!==gameMode&&curTop&&getSugForMode(m)!==curTop)btn.classList.add('mode-diff');
   });
 }
-let simRunning=false;
-function startSimulation(){
-  if(simRunning)return;
-  const el=document.getElementById('sim-result'),btn=document.getElementById('sim-btn');
-  if(!el||!btn)return;
-  if(!hand.length){
-    el.innerHTML='<span style="color:var(--text2);">手札を入力してから実行してください</span>';
-    return;
-  }
-  // スナップショット取得
+let simRunning=false,simRunner=null;
+function makeRunner(){
   const initDeck=getDeckCards();
   const initHand=hand.map(c=>({...c}));
   const initSp=spaces.map(s=>s?{...s}:null);
   const alreadyPlayed=Object.keys(removed).length+spaces.filter(s=>s&&!isRem(s.color,s.number)).length;
-  simRunning=true;btn.disabled=true;btn.style.opacity='0.5';
-  el.innerHTML='<span style="color:var(--text2);">計算中... 0 / 1000</span>';
-  const TRIALS=1000,BATCH=100;
-  let done=0,pass60=0,pass70=0;
+  const noSP=initSp.every(s=>!s);
   const cp=(c,s)=>!s||c.color===s.color||c.number===s.number;
-  function runOne(){
+  function run(recordRoute=false){
     const h=initHand.map(c=>({...c}));
     const sp=initSp.map(s=>s?{...s}:null);
     const deck=initDeck.map(c=>({...c}));
     for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=deck[i];deck[i]=deck[j];deck[j]=t;}
-    let played=0;
+    let played=0;const route=recordRoute?[]:null;
     for(;;){
       const moves=[];
       for(let ci=0;ci<h.length;ci++)for(let si=0;si<2;si++)if(cp(h[ci],sp[si]))moves.push(ci*2+si);
       if(!moves.length)break;
       const mv=moves[Math.floor(Math.random()*moves.length)];
       const ci=mv>>1,si=mv&1;
+      const card={...h[ci]};
       sp[si]=h[ci];h.splice(ci,1);played++;
+      const drawn=deck.length>0?{...deck.pop()}:null;
+      if(route)route.push({card,si,drawn});
       if(alreadyPlayed+played>=70)break;
-      if(deck.length>0)h.push(deck.pop());
+      if(drawn)h.push(drawn);
     }
     const total=alreadyPlayed+played;
-    if(total>=60)pass60++;
-    if(total>=70)pass70++;
+    return{win60:total>=60,win70:total>=70,route};
   }
+  return{run,alreadyPlayed,noSP};
+}
+function startSimulation(){
+  if(simRunning)return;
+  const el=document.getElementById('sim-result'),btn=document.getElementById('sim-btn');
+  const rt=document.getElementById('sim-routes');
+  if(!el||!btn)return;
+  if(!hand.length){el.innerHTML='<span style="color:var(--text2);">手札を入力してから実行してください</span>';return;}
+  simRunner=makeRunner();if(rt)rt.innerHTML='';
+  simRunning=true;btn.disabled=true;btn.style.opacity='0.5';
+  el.innerHTML='<span style="color:var(--text2);">計算中... 0 / 1000</span>';
+  const TRIALS=1000,BATCH=100;
+  let done=0,pass60=0,pass70=0;
   function nextBatch(){
     const end=Math.min(done+BATCH,TRIALS);
-    while(done<end){runOne();done++;}
+    while(done<end){const r=simRunner.run();if(r.win60)pass60++;if(r.win70)pass70++;done++;}
     if(done<TRIALS){
       el.innerHTML=`<span style="color:var(--text2);">計算中... ${done} / ${TRIALS}</span>`;
       setTimeout(nextBatch,0);
@@ -609,17 +620,72 @@ function startSimulation(){
       simRunning=false;btn.disabled=false;btn.style.opacity='1';
       const p60=Math.round(pass60/TRIALS*100),p70=Math.round(pass70/TRIALS*100);
       const col=(p)=>p>=70?'#4a9a2a':p>=40?'#c8850a':'#c03030';
-      const spNote=initSp.every(s=>!s)?'<span style="color:var(--text3);"> ・SP未設定=何でも出せる扱い</span>':'';
+      const spNote=simRunner.noSP?'<span style="color:var(--text3);"> ・SP未設定=何でも出せる扱い</span>':'';
       el.innerHTML=`<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:5px;">
         <div style="display:flex;align-items:baseline;gap:4px;"><span style="font-size:11px;color:var(--text2);">60枚クリア</span><span style="font-size:22px;font-weight:500;color:${col(p60)};">${p60}%</span></div>
         <div style="display:flex;align-items:baseline;gap:4px;"><span style="font-size:11px;color:var(--text2);">70枚クリア</span><span style="font-size:22px;font-weight:500;color:${col(p70)};">${p70}%</span></div>
-        <span style="font-size:11px;color:var(--text3);">現在 ${alreadyPlayed} 枚消費済み</span>
+        <span style="font-size:11px;color:var(--text3);">現在 ${simRunner.alreadyPlayed} 枚消費済み</span>
       </div>
       <div class="pb-wrap"><div class="pb" style="width:${p60}%;background:${col(p60)};"></div></div>
       <div style="font-size:10px;color:var(--text3);margin-top:5px;">※ランダムプレイ基準のため序盤ほど低く出ます。実際の最適プレイでは大幅に高くなります${spNote}</div>`;
+      if(rt&&(pass60>0||pass70>0)){rt.innerHTML=`<button class="btn" id="route-btn" style="font-size:12px;padding:6px 12px;margin-top:4px;" onclick="findClearRoutes()">クリアルートを表示</button><div id="route-list" style="margin-top:8px;"></div>`;}
     }
   }
   setTimeout(nextBatch,0);
+}
+function findClearRoutes(){
+  if(!simRunner)return;
+  const btn=document.getElementById('route-btn'),rl=document.getElementById('route-list');
+  if(!btn||!rl)return;
+  btn.disabled=true;btn.textContent='探索中...';rl.innerHTML='';
+  const TRIALS=300,BATCH=50;
+  let done=0;const byFirst={};
+  function nextBatch(){
+    const end=Math.min(done+BATCH,TRIALS);
+    while(done<end){
+      const r=simRunner.run(true);
+      const route=r.route;
+      if(route&&route.length>0){
+        const f=route[0],key=f.card.color+f.card.number+'_'+f.si;
+        if(!byFirst[key])byFirst[key]={card:f.card,si:f.si,wins60:0,total:0,ex:null};
+        byFirst[key].total++;
+        if(r.win60){byFirst[key].wins60++;if(!byFirst[key].ex)byFirst[key].ex=route;}
+      }
+      done++;
+    }
+    if(done<TRIALS){
+      rl.innerHTML=`<span style="font-size:11px;color:var(--text2);">探索中... ${done}/${TRIALS}</span>`;
+      setTimeout(nextBatch,0);
+    }else{
+      btn.disabled=false;btn.textContent='再探索';
+      renderRoutes(byFirst,rl);
+    }
+  }
+  setTimeout(nextBatch,0);
+}
+function renderRoutes(byFirst,rl){
+  const cmap=Object.fromEntries(COLORS.map(c=>[c.name,c.hex]));
+  const dd=(col,s=8)=>`<span style="display:inline-block;width:${s}px;height:${s}px;border-radius:50%;background:${cmap[col]||'#888'};margin-right:3px;vertical-align:middle;"></span>`;
+  const groups=Object.values(byFirst).filter(g=>g.wins60>0).sort((a,b)=>b.wins60/b.total-a.wins60/a.total);
+  if(!groups.length){rl.innerHTML='<div style="font-size:12px;color:var(--text3);">クリアルートが見つかりませんでした（再探索してみてね）</div>';return;}
+  rl.innerHTML='<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">クリアルート ― 先行カード別（ランダム300試行）</div>'+
+  groups.slice(0,6).map(g=>{
+    const pct=Math.round(g.wins60/g.total*100);
+    const col=pct>=60?'#4a9a2a':pct>=30?'#c8850a':'#c03030';
+    let steps='';
+    if(g.ex){
+      steps=g.ex.slice(0,10).map((step,i)=>{
+        const drawnTxt=step.drawn?` <span style="color:var(--text3);">→ ${step.drawn.color}${step.drawn.number}を引く</span>`:'';
+        return `<div style="padding:2px 0 2px 8px;font-size:11px;line-height:1.6;border-left:1.5px solid var(--border2);">${i+1}. ${dd(step.card.color)}${step.card.color}${step.card.number} → SP${step.si+1}${drawnTxt}</div>`;
+      }).join('');
+      if(g.ex.length>10)steps+=`<div style="font-size:10px;color:var(--text3);padding-left:8px;">…以降 ${g.ex.length-10} 手</div>`;
+    }
+    return `<div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:12px;font-weight:500;">${dd(g.card.color,10)}先行: ${g.card.color}${g.card.number} → SP${g.si+1}</div>
+        <div style="display:flex;align-items:baseline;gap:3px;"><span style="font-size:18px;font-weight:500;color:${col};">${pct}%</span><span style="font-size:10px;color:var(--text3);">(${g.wins60}/${g.total})</span></div>
+      </div>${steps}</div>`;
+  }).join('');
 }
 function encodeState(){
   const ci=(col,n)=>COLORS.findIndex(x=>x.name===col)*10+(n-1);
@@ -736,6 +802,17 @@ function renderTutStep(){
     tip.style.top=Math.max(8,top)+'px';
     tip.style.left=left+'px';
   },120);
+}
+function minimizeTut(){
+  const tip=document.getElementById('tut-tip'),mini=document.getElementById('tut-mini');
+  if(tip)tip.style.display='none';
+  if(mini)mini.style.display='block';
+}
+function expandTut(){
+  const mini=document.getElementById('tut-mini');
+  if(mini)mini.style.display='none';
+  if(tutIdx<0)tutIdx=0;
+  renderTutStep();
 }
 function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;renderGrid();renderSpaces();renderHand();}
 function setMode(m){
