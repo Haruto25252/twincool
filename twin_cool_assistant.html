@@ -173,7 +173,7 @@ const COLORS=[
   {name:'灰',hex:'#A0A09A'},{name:'シアン',hex:'#29B8C2'},
   {name:'紫',hex:'#7F77DD'},{name:'ピンク',hex:'#D4537E'},
 ];
-let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false,prePlayState=null,prePlayLocked=false,playedCount=0;
+let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false,prePlayState=null,prePlayLocked=false,playedCount=0,playSaveState=null;
 let selColors=[],selNums=[],modalMode=null,modalTarget=null,showWarn=false;
 let simTrials=1000;
 const isRem=(c,n)=>!!removed[c+'_'+n];
@@ -186,7 +186,7 @@ function updateCounts(){
   const sc=spaces.filter(s=>s!==null&&!isRem(s.color,s.number)).length;
   document.getElementById('rem').textContent=Math.max(0,80-rc-sc);
   const pc=document.getElementById('played-ct');
-  if(pc)pc.textContent=playedCount;
+  if(pc)pc.textContent=Math.max(0,Object.keys(removed).length-10);
 }
 function updateLockButton(){
   const btn=document.getElementById('lock-btn');
@@ -254,7 +254,10 @@ function renderHand(){
   if(!hand.length){el.innerHTML='<span style="font-size:12px;color:var(--text3);padding-top:28px;">追加ボタンで手札を入力</span>';renderGrid();updateSugs();updateHint();updateCounts();return;}
   el.innerHTML=hand.map((card,i)=>{
     const c=COLORS.find(x=>x.name===card.color);
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="hand-card" style="background:${c.hex};" onclick="removeHand(${i})"><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}<span style="font-size:9px;color:rgba(255,255,255,.6);">×削除</span></div></div>`;
+    const delLabel=playMode?'':`<span style="font-size:9px;color:rgba(255,255,255,.6);">×削除</span>`;
+    const click=playMode?'':`onclick="removeHand(${i})"`;
+    const cursor=playMode?'cursor:default;':'';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="hand-card" style="background:${c.hex};${cursor}" ${click}><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}${delLabel}</div></div>`;
   }).join('');
   renderGrid();updateSugs();updateHint();updateCounts();
   const ab=document.getElementById('add-btn');
@@ -687,7 +690,7 @@ function findClearRoutes(){
   const btn=document.getElementById('route-btn'),rl=document.getElementById('route-list');
   if(!btn||!rl)return;
   btn.disabled=true;btn.textContent='探索中...';rl.innerHTML='';
-  const TRIALS=300,BATCH=50;
+  const TRIALS=simTrials,BATCH=100;
   let done=0;const byFirst={};
   function nextBatch(){
     const end=Math.min(done+BATCH,TRIALS);
@@ -717,17 +720,25 @@ function renderRoutes(byFirst,rl){
   const dd=(col,s=8)=>`<span style="display:inline-block;width:${s}px;height:${s}px;border-radius:50%;background:${cmap[col]||'#888'};margin-right:3px;vertical-align:middle;"></span>`;
   const groups=Object.values(byFirst).filter(g=>g.wins60>0).sort((a,b)=>b.wins60/b.total-a.wins60/a.total);
   if(!groups.length){rl.innerHTML='<div style="font-size:12px;color:var(--text3);">クリアルートが見つかりませんでした（再探索してみてね）</div>';return;}
-  rl.innerHTML='<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">クリアルート ― 先行カード別（ランダム300試行）</div>'+
-  groups.slice(0,6).map(g=>{
+  rl.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">クリアルート ― 先行カード別（${simTrials}試行）</div>`+
+  groups.slice(0,6).map((g,gi)=>{
     const pct=Math.round(g.wins60/g.total*100);
     const col=pct>=60?'#4a9a2a':pct>=30?'#c8850a':'#c03030';
+    const stepHtml=(step,i)=>{
+      const drawnTxt=step.drawn?` <span style="color:var(--text3);">→ ${step.drawn.color}${step.drawn.number}を引く</span>`:'';
+      return `<div style="padding:2px 0 2px 8px;font-size:11px;line-height:1.6;border-left:1.5px solid var(--border2);">${i+1}. ${dd(step.card.color)}${step.card.color}${step.card.number} → SP${step.si+1}${drawnTxt}</div>`;
+    };
     let steps='';
     if(g.ex){
-      steps=g.ex.slice(0,10).map((step,i)=>{
-        const drawnTxt=step.drawn?` <span style="color:var(--text3);">→ ${step.drawn.color}${step.drawn.number}を引く</span>`:'';
-        return `<div style="padding:2px 0 2px 8px;font-size:11px;line-height:1.6;border-left:1.5px solid var(--border2);">${i+1}. ${dd(step.card.color)}${step.card.color}${step.card.number} → SP${step.si+1}${drawnTxt}</div>`;
-      }).join('');
-      if(g.ex.length>10)steps+=`<div style="font-size:10px;color:var(--text3);padding-left:8px;">…以降 ${g.ex.length-10} 手</div>`;
+      steps=g.ex.slice(0,10).map(stepHtml).join('');
+      if(g.ex.length>10){
+        const extra=g.ex.slice(10).map(stepHtml).join('');
+        steps+=`<div id="re-${gi}" style="display:none;">${extra}</div>
+        <div style="display:flex;align-items:center;gap:6px;padding-left:8px;margin-top:2px;">
+          <span style="font-size:10px;color:var(--text3);">…以降 ${g.ex.length-10} 手</span>
+          <button id="re-btn-${gi}" class="btn" style="font-size:10px;padding:2px 8px;" onclick="toggleRouteExtra(${gi})">すべて表示</button>
+        </div>`;
+      }
     }
     return `<div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -735,6 +746,13 @@ function renderRoutes(byFirst,rl){
         <div style="display:flex;align-items:baseline;gap:3px;"><span style="font-size:18px;font-weight:500;color:${col};">${pct}%</span><span style="font-size:10px;color:var(--text3);">(${g.wins60}/${g.total})</span></div>
       </div>${steps}</div>`;
   }).join('');
+}
+function toggleRouteExtra(i){
+  const el=document.getElementById(`re-${i}`),btn=document.getElementById(`re-btn-${i}`);
+  if(!el)return;
+  const show=el.style.display==='none';
+  el.style.display=show?'block':'none';
+  if(btn)btn.textContent=show?'閉じる':'すべて表示';
 }
 function encodeState(){
   const ci=(col,n)=>COLORS.findIndex(x=>x.name===col)*10+(n-1);
@@ -878,15 +896,22 @@ function expandTut(){
 function renderPlayMode(){
   const el=document.getElementById('play-bar');if(!el)return;
   if(playMode){
-    const deckCount=getDeckCards().length;
-    el.innerHTML=`<div style="display:flex;align-items:center;gap:5px;">
+    const loadDis=!playSaveState;
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:4px;">
+      <button class="btn" style="font-size:10px;padding:3px 7px;" onclick="saveMidPlay()" title="セーブ">💾</button>
+      <button class="btn" style="font-size:10px;padding:3px 7px;${loadDis?'opacity:0.35;cursor:not-allowed;':''}" ${loadDis?'disabled':''} onclick="loadMidPlay()" title="ロード">📂</button>
       <span style="font-size:10px;color:#7acc7a;font-weight:600;">▶ プレイ中</span>
-      <span style="font-size:10px;color:var(--text3);">残${deckCount}枚</span>
       <button class="btn" style="font-size:10px;padding:3px 8px;" onclick="exitPlayMode()">終了</button>
     </div>`;
   } else {
     el.innerHTML=`<button class="btn" style="font-size:11px;padding:4px 9px;" onclick="startPlay()">▶ プレイ</button>`;
   }
+}
+function saveMidPlay(){playSaveState=encodeState();renderPlayMode();showToast('セーブしました');}
+function loadMidPlay(){
+  if(!playSaveState)return;
+  decodeState(playSaveState);
+  playMode=true;renderPlayMode();renderSpaces();showToast('ロードしました');
 }
 function randomExclude10(){
   const deck=[];
@@ -943,7 +968,7 @@ function exitPlayMode(){
 }
 function _doExitPlay(restore){
   const saved=prePlayState,savedLocked=prePlayLocked;
-  playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;
+  playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;playSaveState=null;
   if(restore&&saved){decodeState(saved);gridLocked=savedLocked;renderGrid();}
   renderPlayMode();renderSpaces();
 }
@@ -958,7 +983,7 @@ function confirmRestartPlay(){
 }
 function _restartPlay(){
   const saved=prePlayState,savedLocked=prePlayLocked;
-  playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;
+  playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;playSaveState=null;
   if(saved){decodeState(saved);gridLocked=savedLocked;renderGrid();}
   renderPlayMode();
   setTimeout(()=>startPlay(),80);
