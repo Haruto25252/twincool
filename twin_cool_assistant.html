@@ -178,7 +178,7 @@ let selColors=[],selNums=[],modalMode=null,modalTarget=null,showWarn=false;
 let simTrials=1000;
 const isRem=(c,n)=>!!removed[c+'_'+n];
 const countCombos=(colors,nums)=>{let c=0;for(const cl of colors)for(const n of nums)if(!isRem(cl,n))c++;return c;};
-const togRem=(c,n)=>{if(gridLocked)return;const k=c+'_'+n;removed[k]?delete removed[k]:(removed[k]=true);renderGrid();updateSugs();updateHint();};
+const togRem=(c,n)=>{if(gridLocked||playMode)return;const k=c+'_'+n;removed[k]?delete removed[k]:(removed[k]=true);renderGrid();updateSugs();updateHint();};
 function dot(hex,s=14){return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}"><circle cx="${s/2}" cy="${s/2}" r="${s/2-0.5}" fill="${hex}"/></svg>`;}
 function updateCounts(){
   const rc=Object.keys(removed).length;
@@ -193,6 +193,13 @@ function updateLockButton(){
   const sub=document.getElementById('grid-sub');
   if(!btn) return;
   const rc=Object.keys(removed).length;
+  if(playMode){
+    btn.textContent='🔒 ロック中';
+    btn.disabled=true;
+    btn.style.cssText='font-size:12px;padding:5px 9px;opacity:0.5;';
+    if(sub) sub.textContent='— プレイ中（変更不可）';
+    return;
+  }
   if(gridLocked){
     btn.textContent='🔓 解除';
     btn.disabled=false;
@@ -222,7 +229,7 @@ function renderGrid(){
       const onSP=!rem&&spaces.some(s=>s&&s.color===c.name&&s.number===n);
       const inHand=!rem&&!onSP&&hand.some(hc=>hc.color===c.name&&hc.number===n);
       const cls='cell'+((rem||onSP)?' removed':inHand?' in-hand':'');
-      const noClick=gridLocked||inHand||onSP;
+      const noClick=gridLocked||playMode||inHand||onSP;
       h+=`<div class="${cls}" style="background:${(rem||onSP)?'var(--bg3)':c.hex+'2a'};color:${(rem||onSP)?'var(--text3)':c.hex};${noClick?'cursor:default;':''}" ${noClick?'':'onclick="togRem(\''+c.name+'\','+n+')"'}>${n}</div>`;
     }
   });
