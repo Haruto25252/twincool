@@ -52,6 +52,7 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
   <span style="font-size:16px;font-weight:600;">TWIN COOL Assistant</span>
   <button onclick="startTutorial()" title="使い方" style="font-size:12px;font-weight:700;width:22px;height:22px;border-radius:50%;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;">?</button>
+  <div id="play-bar" style="margin-left:auto;"></div>
 </div>
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
   <div style="display:flex;align-items:center;gap:6px;">
@@ -64,6 +65,11 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
       <div style="font-size:9px;color:var(--text2);">残り</div>
       <div style="font-size:18px;font-weight:500;line-height:1;" id="rem">80</div>
     </div>
+    <div style="color:var(--text3);font-size:14px;">/</div>
+    <div style="text-align:center;">
+      <div style="font-size:9px;color:var(--text2);">連鎖</div>
+      <div style="font-size:18px;font-weight:500;line-height:1;" id="chain-ct">0</div>
+    </div>
   </div>
   <div style="display:flex;gap:5px;align-items:center;">
     <button class="btn" style="font-size:11px;padding:5px 8px;" onclick="copyState()" title="現在の状態をコードとしてコピー">状態コピー</button>
@@ -71,7 +77,6 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
     <button class="btn" style="font-size:11px;padding:5px 9px;" onclick="resetAll()">リセット</button>
   </div>
 </div>
-<div id="play-bar" style="margin-bottom:14px;"></div>
 <div style="margin-bottom:14px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
     <div class="sl" style="margin-bottom:0;">カード残存表 <span id="grid-sub" style="font-weight:400;font-size:10px;color:var(--text3);">— タップで除外/復活</span></div>
@@ -126,7 +131,13 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
 <div style="margin-bottom:14px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
     <div class="sl" style="margin-bottom:0;">クリア確率シミュレーション</div>
-    <button class="btn" id="sim-btn" style="font-size:12px;padding:5px 10px;" onclick="startSimulation()">実行 (1000回)</button>
+    <div style="display:flex;gap:4px;align-items:center;">
+      <span style="font-size:10px;color:var(--text2);">試行:</span>
+      <button class="btn" id="sim-t1" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(1000)">1k</button>
+      <button class="btn" id="sim-t2" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(3000)">3k</button>
+      <button class="btn" id="sim-t3" style="font-size:11px;padding:4px 7px;" onclick="setSimTrials(5000)">5k</button>
+      <button class="btn" id="sim-btn" style="font-size:12px;padding:5px 10px;margin-left:4px;" onclick="startSimulation()">実行</button>
+    </div>
   </div>
   <div id="sim-result" style="font-size:12px;color:var(--text3);">手札・SPを設定してから実行してください</div>
   <div id="sim-routes" style="margin-top:10px;"></div>
@@ -137,7 +148,7 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
       <svg height="24" viewBox="0 0 16 16" width="24" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
     </a>
   </div>
-  <div style="font-size:10px;letter-spacing:.12em;color:var(--text3);margin-bottom:5px;">VERSION&nbsp;&nbsp;V1.0.0</div>
+  <div style="font-size:10px;letter-spacing:.12em;color:var(--text3);margin-bottom:5px;">VERSION&nbsp;&nbsp;V1.0.1</div>
   <div style="font-size:10px;letter-spacing:.06em;color:var(--text3);">© 2026&nbsp;&nbsp;Produced by Harun</div>
 </div>
 <div id="modal-root"></div>
@@ -162,8 +173,9 @@ const COLORS=[
   {name:'灰',hex:'#A0A09A'},{name:'シアン',hex:'#29B8C2'},
   {name:'紫',hex:'#7F77DD'},{name:'ピンク',hex:'#D4537E'},
 ];
-let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false;
+let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false,prePlayState=null;
 let selColors=[],selNums=[],modalMode=null,modalTarget=null,showWarn=false;
+let simTrials=1000;
 const isRem=(c,n)=>!!removed[c+'_'+n];
 const countCombos=(colors,nums)=>{let c=0;for(const cl of colors)for(const n of nums)if(!isRem(cl,n))c++;return c;};
 const togRem=(c,n)=>{if(gridLocked)return;const k=c+'_'+n;removed[k]?delete removed[k]:(removed[k]=true);renderGrid();updateSugs();updateHint();};
@@ -173,6 +185,8 @@ function updateCounts(){
   document.getElementById('rc').textContent=rc;
   const sc=spaces.filter(s=>s!==null&&!isRem(s.color,s.number)).length;
   document.getElementById('rem').textContent=Math.max(0,80-rc-sc);
+  const cc=document.getElementById('chain-ct');
+  if(cc)cc.textContent=hand.length?maxHandChain(hand,spaces):0;
 }
 function updateLockButton(){
   const btn=document.getElementById('lock-btn');
@@ -391,7 +405,11 @@ function updateSugs(){
   const el=document.getElementById('sugs');
   if(!hand.length){el.innerHTML='<span style="font-size:12px;color:var(--text3);">手札を入力すると提案が表示されます</span>';updateModeDiffBtns(null);return;}
   const s=calcSugs();
-  if(!s.length){el.innerHTML='<div style="font-size:12px;color:#E24B4A;">出せるカードがありません</div>';updateModeDiffBtns(null);return;}
+  if(!s.length){
+    let nh='<div style="font-size:12px;color:#E24B4A;margin-bottom:8px;">出せるカードがありません</div>';
+    if(playMode)nh+=`<button class="btn" style="font-size:12px;padding:7px 14px;" onclick="confirmRestartPlay()">↩ 最初からプレイ</button>`;
+    el.innerHTML=nh;updateModeDiffBtns(null);return;
+  }
   el.innerHTML=s.slice(0,4).map((x,i)=>{
     const c=COLORS.find(q=>q.name===x.card.color);
     const badge=i===0?`<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:#1a3a1a;color:#7acc7a;margin-left:5px;">推奨</span>`:'';
@@ -622,6 +640,13 @@ function makeRunner(){
   }
   return{run,alreadyPlayed,noSP};
 }
+function setSimTrials(n){
+  simTrials=n;
+  [{id:'sim-t1',v:1000},{id:'sim-t2',v:3000},{id:'sim-t3',v:5000}].forEach(({id,v})=>{
+    const b=document.getElementById(id);if(!b)return;
+    b.style.cssText=`font-size:11px;padding:4px 7px;${v===n?'background:#2a5fa8;color:white;border-color:#1d4a8a;':''}`;
+  });
+}
 function startSimulation(){
   if(simRunning)return;
   const el=document.getElementById('sim-result'),btn=document.getElementById('sim-btn');
@@ -630,8 +655,8 @@ function startSimulation(){
   if(!hand.length){el.innerHTML='<span style="color:var(--text2);">手札を入力してから実行してください</span>';return;}
   simRunner=makeRunner();if(rt)rt.innerHTML='';
   simRunning=true;btn.disabled=true;btn.style.opacity='0.5';
-  el.innerHTML='<span style="color:var(--text2);">計算中... 0 / 1000</span>';
-  const TRIALS=1000,BATCH=100;
+  el.innerHTML=`<span style="color:var(--text2);">計算中... 0 / ${simTrials}</span>`;
+  const TRIALS=simTrials,BATCH=100;
   let done=0,pass60=0,pass70=0;
   function nextBatch(){
     const end=Math.min(done+BATCH,TRIALS);
@@ -853,12 +878,13 @@ function renderPlayMode(){
   const el=document.getElementById('play-bar');if(!el)return;
   if(playMode){
     const deckCount=getDeckCards().length;
-    el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:0.5px solid #3a7a3a;border-radius:10px;padding:10px 14px;">
-      <div><div style="font-size:12px;font-weight:600;color:#7acc7a;">▶ プレイ中</div><div style="font-size:10px;color:var(--text3);margin-top:2px;">デッキ残り ${deckCount} 枚</div></div>
-      <button class="btn" style="font-size:11px;padding:5px 12px;" onclick="exitPlayMode()">■ 終了</button>
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:5px;">
+      <span style="font-size:10px;color:#7acc7a;font-weight:600;">▶ プレイ中</span>
+      <span style="font-size:10px;color:var(--text3);">残${deckCount}枚</span>
+      <button class="btn" style="font-size:10px;padding:3px 8px;" onclick="exitPlayMode()">終了</button>
     </div>`;
   } else {
-    el.innerHTML=`<button class="btn btn-p" style="font-size:13px;padding:10px 18px;width:100%;display:block;" onclick="startPlay()">▶ プレイ開始</button>`;
+    el.innerHTML=`<button class="btn" style="font-size:11px;padding:4px 9px;" onclick="startPlay()">▶ 開始</button>`;
   }
 }
 function randomExclude10(){
@@ -866,6 +892,7 @@ function randomExclude10(){
   for(const c of COLORS)for(let n=1;n<=10;n++)if(!isRem(c.name,n)&&!hand.some(h=>h.color===c.name&&h.number===n)&&!spaces.some(s=>s&&s.color===c.name&&s.number===n))deck.push({color:c.name,number:n});
   for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=deck[i];deck[i]=deck[j];deck[j]=t;}
   deck.slice(0,Math.min(10,deck.length)).forEach(c=>{removed[c.color+'_'+c.number]=true;});
+  gridLocked=true;
   renderGrid();
 }
 function drawToFive(){
@@ -902,9 +929,39 @@ function _playStep2(){
     enterPlayMode();
   }
 }
-function enterPlayMode(){playMode=true;renderPlayMode();renderSpaces();showToast('プレイ開始！');}
-function exitPlayMode(){playMode=false;renderPlayMode();renderSpaces();}
-function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;playMode=false;renderGrid();renderSpaces();renderHand();renderPlayMode();}
+function enterPlayMode(){prePlayState=encodeState();playMode=true;renderPlayMode();renderSpaces();showToast('プレイ開始！');}
+function exitPlayMode(){
+  document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)"><div class="md" onclick="event.stopPropagation()">
+    <div style="font-size:13px;line-height:1.7;margin-bottom:18px;">プレイ開始時の状態に戻しますか？</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" style="flex:1;padding:10px;" onclick="cm();_doExitPlay(false)">このまま終了</button>
+      <button class="btn btn-p" style="flex:1;padding:10px;" onclick="cm();_doExitPlay(true)">開始時に戻す</button>
+    </div>
+  </div></div>`;
+}
+function _doExitPlay(restore){
+  const saved=prePlayState;
+  playMode=false;prePlayState=null;
+  if(restore&&saved){decodeState(saved);}
+  renderPlayMode();renderSpaces();
+}
+function confirmRestartPlay(){
+  document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)"><div class="md" onclick="event.stopPropagation()">
+    <div style="font-size:13px;line-height:1.7;margin-bottom:18px;">プレイをリセットして最初からやり直しますか？</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" style="flex:1;padding:10px;" onclick="cm()">キャンセル</button>
+      <button class="btn btn-p" style="flex:1;padding:10px;" onclick="cm();_restartPlay()">最初から</button>
+    </div>
+  </div></div>`;
+}
+function _restartPlay(){
+  const saved=prePlayState;
+  playMode=false;prePlayState=null;
+  if(saved){decodeState(saved);}
+  renderPlayMode();
+  setTimeout(()=>startPlay(),80);
+}
+function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;playMode=false;prePlayState=null;renderGrid();renderSpaces();renderHand();renderPlayMode();}
 function setMode(m){
   gameMode=m;
   const b60=document.getElementById('mode60'),b70=document.getElementById('mode70'),bc=document.getElementById('modeChain');
@@ -914,7 +971,7 @@ function setMode(m){
   bc.style.cssText='font-size:11px;padding:5px 8px;'+(m==='chain'?'background:#1a6a3a;color:white;border-color:#0a4a2a;':'');
   updateSugs();
 }
-renderGrid();renderSpaces();renderHand();setMode(60);renderPlayMode();
+renderGrid();renderSpaces();renderHand();setMode(60);renderPlayMode();setSimTrials(1000);
 </script>
 </body>
 </html>
