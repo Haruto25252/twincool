@@ -90,12 +90,12 @@ body{background:var(--bg);font-family:system-ui,sans-serif;color:var(--text);min
   <div style="display:flex;gap:12px;align-items:flex-start;">
     <div style="text-align:center;">
       <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">SP1</div>
-      <div class="space-slot" id="sp1" onclick="openModal('space',0)"></div>
+      <div class="space-slot" id="sp1" onclick="tapSpSlot(0)"></div>
       <button id="sp-clear-0" class="btn" style="font-size:11px;padding:5px 0;margin-top:5px;width:80px;" onclick="clearSpace(0)">クリア</button>
     </div>
     <div style="text-align:center;">
       <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">SP2</div>
-      <div class="space-slot" id="sp2" onclick="openModal('space',1)"></div>
+      <div class="space-slot" id="sp2" onclick="tapSpSlot(1)"></div>
       <button id="sp-clear-1" class="btn" style="font-size:11px;padding:5px 0;margin-top:5px;width:80px;" onclick="clearSpace(1)">クリア</button>
     </div>
     <div style="flex:1;padding-left:6px;">
@@ -173,7 +173,7 @@ const COLORS=[
   {name:'灰',hex:'#A0A09A'},{name:'シアン',hex:'#29B8C2'},
   {name:'紫',hex:'#7F77DD'},{name:'ピンク',hex:'#D4537E'},
 ];
-let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false,prePlayState=null,prePlayLocked=false,playedCount=0,playSaveState=null;
+let removed={},spaces=[null,null],hand=[],gridLocked=false,gameMode=60,playMode=false,prePlayState=null,prePlayLocked=false,playedCount=0,playSaveState=null,selectedHandIdx=null,selectedSpIdx=null;
 let selColors=[],selNums=[],modalMode=null,modalTarget=null,showWarn=false;
 let simTrials=1000;
 const isRem=(c,n)=>!!removed[c+'_'+n];
@@ -240,14 +240,20 @@ function renderGrid(){
 function renderSpaces(){
   [0,1].forEach(i=>{
     const el=document.getElementById(`sp${i+1}`),card=spaces[i];
+    const isSPSel=playMode&&selectedSpIdx===i;
+    const hasHandSel=playMode&&selectedHandIdx!==null;
+    const hc=hasHandSel?hand[selectedHandIdx]:null;
+    const canReceive=!hasHandSel||!hc||!spaces[i]||(hc.color===spaces[i].color||hc.number===spaces[i].number);
+    const selStyle=isSPSel?'box-shadow:0 0 0 2.5px white,0 0 12px rgba(255,255,255,.4);':'';
+    const dimStyle=hasHandSel&&!canReceive?'opacity:0.35;':'';
     if(card){
       const c=COLORS.find(x=>x.name===card.color);
       el.classList.add('has-card');
-      el.style.cssText=`border-color:${c.hex};background:${c.hex}22;border-style:solid;`;
+      el.style.cssText=`border-color:${c.hex};background:${c.hex}22;border-style:solid;${selStyle}${dimStyle}`;
       el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="font-size:24px;font-weight:500;color:white;">${card.number}</span>${dot(c.hex,18)}<span style="font-size:10px;color:rgba(255,255,255,.7);">${card.color}</span></div>`;
     } else {
-      el.classList.remove('has-card');el.style.cssText='';
-      el.innerHTML=`<span style="font-size:11px;color:var(--text3);text-align:center;line-height:1.7;">タップして<br>設定</span>`;
+      el.classList.remove('has-card');el.style.cssText=selStyle;
+      el.innerHTML=`<span style="font-size:11px;color:var(--text3);text-align:center;line-height:1.7;">タップして<br>${isSPSel?'<b style="color:white;">選択中</b>':'設定'}</span>`;
     }
     const cb=document.getElementById(`sp-clear-${i}`);
     if(cb)cb.style.display=playMode?'none':'block';
@@ -261,10 +267,17 @@ function renderHand(){
   if(!hand.length){el.innerHTML='<span style="font-size:12px;color:var(--text3);padding-top:28px;">追加ボタンで手札を入力</span>';renderGrid();updateSugs();updateHint();updateCounts();return;}
   el.innerHTML=hand.map((card,i)=>{
     const c=COLORS.find(x=>x.name===card.color);
-    const delLabel=playMode?'':`<span style="font-size:9px;color:rgba(255,255,255,.6);">×削除</span>`;
-    const click=playMode?'':`onclick="removeHand(${i})"`;
-    const cursor=playMode?'cursor:default;':'';
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="hand-card" style="background:${c.hex};${cursor}" ${click}><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}${delLabel}</div></div>`;
+    if(playMode){
+      const isSel=selectedHandIdx===i;
+      const hasSPSel=selectedSpIdx!==null;
+      const sp=hasSPSel?spaces[selectedSpIdx]:null;
+      const canPlay=!hasSPSel||!sp||card.color===sp.color||card.number===sp.number;
+      const dim=hasSPSel&&!canPlay?'opacity:0.3;':'';
+      const glow=isSel?'box-shadow:0 0 0 2.5px white,0 0 10px rgba(255,255,255,.5);transform:scale(1.06);':'';
+      const lbl=isSel?'✓ 選択中':'タップで選択';
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="hand-card" style="background:${c.hex};${dim}${glow}" onclick="tapHandCard(${i})"><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}<span style="font-size:9px;color:rgba(255,255,255,${isSel?'.95':'.5'});">${lbl}</span></div></div>`;
+    }
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="hand-card" style="background:${c.hex};" onclick="removeHand(${i})"><span style="font-size:20px;font-weight:500;color:white;">${card.number}</span>${dot('#ffffff',14)}<span style="font-size:9px;color:rgba(255,255,255,.6);">×削除</span></div></div>`;
   }).join('');
   renderGrid();updateSugs();updateHint();updateCounts();
   const ab=document.getElementById('add-btn');
@@ -482,6 +495,7 @@ function updateSugs(){
   updateModeDiffBtns(curTop);
 }
 function playCard(ci,si){
+  selectedHandIdx=null;selectedSpIdx=null;
   const card=hand[ci];
   removed[card.color+'_'+card.number]=true;
   spaces[si]=card;
@@ -917,8 +931,9 @@ function renderPlayMode(){
 function saveMidPlay(){playSaveState=encodeState();renderPlayMode();showToast('セーブしました');}
 function loadMidPlay(){
   if(!playSaveState)return;
+  selectedHandIdx=null;selectedSpIdx=null;
   decodeState(playSaveState);
-  playMode=true;renderPlayMode();renderSpaces();showToast('ロードしました');
+  playMode=true;renderPlayMode();renderSpaces();renderHand();showToast('ロードしました');
 }
 function randomExclude10(){
   const deck=[];
@@ -963,7 +978,7 @@ function _playStep2(){
     enterPlayMode();
   }
 }
-function enterPlayMode(){playedCount=0;playMode=true;renderPlayMode();renderSpaces();showToast('プレイ開始！');}
+function enterPlayMode(){selectedHandIdx=null;selectedSpIdx=null;playedCount=0;playMode=true;renderPlayMode();renderSpaces();renderHand();showToast('プレイ開始！');}
 function exitPlayMode(){
   document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="cbg(event)"><div class="md" onclick="event.stopPropagation()">
     <div style="font-size:13px;line-height:1.7;margin-bottom:18px;">プレイ開始時の状態に戻しますか？</div>
@@ -975,7 +990,7 @@ function exitPlayMode(){
 }
 function _doExitPlay(restore){
   const saved=prePlayState,savedLocked=prePlayLocked;
-  playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;playSaveState=null;
+  playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;playSaveState=null;selectedHandIdx=null;selectedSpIdx=null;
   if(restore&&saved){decodeState(saved);gridLocked=savedLocked;renderGrid();}
   renderPlayMode();renderSpaces();
 }
@@ -990,12 +1005,38 @@ function confirmRestartPlay(){
 }
 function _restartPlay(){
   const saved=prePlayState,savedLocked=prePlayLocked;
-  playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;playSaveState=null;
+  playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;playSaveState=null;selectedHandIdx=null;selectedSpIdx=null;
   if(saved){decodeState(saved);gridLocked=savedLocked;renderGrid();}
   renderPlayMode();
   setTimeout(()=>startPlay(),80);
 }
-function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;renderGrid();renderSpaces();renderHand();renderPlayMode();}
+function resetAll(){removed={};spaces=[null,null];hand=[];gridLocked=false;playMode=false;prePlayState=null;prePlayLocked=false;playedCount=0;playSaveState=null;selectedHandIdx=null;selectedSpIdx=null;renderGrid();renderSpaces();renderHand();renderPlayMode();}
+function tapHandCard(ci){
+  if(!playMode)return;
+  if(selectedSpIdx!==null){
+    const card=hand[ci],sp=spaces[selectedSpIdx];
+    if(sp&&card.color!==sp.color&&card.number!==sp.number){showToast('そのカードは出せません',true);return;}
+    const si=selectedSpIdx;selectedHandIdx=null;selectedSpIdx=null;
+    playCard(ci,si);
+  } else if(selectedHandIdx===ci){
+    selectedHandIdx=null;renderHand();renderSpaces();
+  } else {
+    selectedHandIdx=ci;selectedSpIdx=null;renderHand();renderSpaces();
+  }
+}
+function tapSpSlot(si){
+  if(!playMode){openModal('space',si);return;}
+  if(selectedHandIdx!==null){
+    const card=hand[selectedHandIdx],sp=spaces[si];
+    if(sp&&card.color!==sp.color&&card.number!==sp.number){showToast('そのカードは出せません',true);return;}
+    const ci=selectedHandIdx;selectedHandIdx=null;selectedSpIdx=null;
+    playCard(ci,si);
+  } else if(selectedSpIdx===si){
+    selectedSpIdx=null;renderSpaces();renderHand();
+  } else {
+    selectedSpIdx=si;selectedHandIdx=null;renderSpaces();renderHand();
+  }
+}
 function setMode(m){
   gameMode=m;
   const b60=document.getElementById('mode60'),b70=document.getElementById('mode70'),bc=document.getElementById('modeChain');
