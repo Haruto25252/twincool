@@ -652,7 +652,7 @@ function makeRunner(){
   const initDeck=getDeckCards();
   const initHand=hand.map(c=>({...c}));
   const initSp=spaces.map(s=>s?{...s}:null);
-  const alreadyPlayed=Object.keys(removed).length+spaces.filter(s=>s&&!isRem(s.color,s.number)).length;
+  const alreadyPlayed=Math.max(0,Object.keys(removed).length-10)+spaces.filter(s=>s&&!isRem(s.color,s.number)).length;
   const noSP=initSp.every(s=>!s);
   const cp=(c,s)=>!s||c.color===s.color||c.number===s.number;
   function run(recordRoute=false){
